@@ -4,8 +4,12 @@ from decimal import Decimal, ROUND_HALF_UP
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from .db import db
-from .deps import AuthUser, current_user
+try:
+    from .db import db
+    from .deps import AuthUser, current_user
+except ImportError:
+    from db import db
+    from deps import AuthUser, current_user
 
 router = APIRouter(prefix="/api/ventas", tags=["ventas"])
 

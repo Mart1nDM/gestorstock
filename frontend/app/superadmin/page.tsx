@@ -103,6 +103,20 @@ export default function SuperAdminPage() {
     }
   }
 
+  async function contactRequest(requestId: number) {
+    setBusyRequestId(requestId);
+    setError("");
+    try {
+      await apiFetch(`/usuarios/solicitudes/${requestId}/contactar`, { method: "POST" });
+      setToast("Solicitud de soporte marcada como contactada.");
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo registrar el contacto.");
+    } finally {
+      setBusyRequestId(null);
+    }
+  }
+
   async function copyLink(invitation: AccountInvitation) {
     try {
       await navigator.clipboard.writeText(invitation.invite_url);
@@ -161,7 +175,9 @@ export default function SuperAdminPage() {
               </tr>
             </thead>
             <tbody>
-              {requests.map(request => (
+              {requests.map(request => {
+                const isSupport = (request.plan || "").trim().toLowerCase() === "soporte";
+                return (
                 <tr key={request.id}>
                   <td>{request.nombre}</td>
                   <td>{request.correo}</td>
@@ -171,15 +187,16 @@ export default function SuperAdminPage() {
                   <td>{new Date(request.creado_en).toLocaleString("es-AR")}</td>
                   <td>
                     <button
-                      className="btn btn-primary btn-sm"
+                      className={isSupport ? "btn btn-secondary btn-sm" : "btn btn-primary btn-sm"}
                       disabled={busyRequestId === request.id}
-                      onClick={() => inviteRequest(request.id)}
+                      onClick={() => isSupport ? contactRequest(request.id) : inviteRequest(request.id)}
                     >
-                      {busyRequestId === request.id ? "Generando…" : "Generar link"}
+                      {busyRequestId === request.id ? "Procesando…" : isSupport ? "Contactar" : "Generar link"}
                     </button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {!requests.length && (
                 <tr>
                   <td colSpan={7}>
@@ -319,3 +336,4 @@ export default function SuperAdminPage() {
     </AppShell>
   );
 }
+

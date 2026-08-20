@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { FormEvent, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { apiFetch } from "../../lib/api";
@@ -41,7 +40,7 @@ export default function SetPasswordPage() {
   return <main className="container" style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}><div className="card page-pad" style={{ width: "min(440px,100%)" }}>
     <Link href="/" className="brand" style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
       <div style={{ position: "relative", width: 144, height: 144 }}>
-        <Image src="/logo.png" alt="MartoTech" fill sizes="144px" priority style={{ objectFit: "contain" }} />
+        <img src="/logo.png" alt="MartoTech" width={144} height={144} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
       </div>
     </Link>
     {!ready && !error && <p className="muted">Validando invitación…</p>}
@@ -49,4 +48,5 @@ export default function SetPasswordPage() {
     {done ? <><h1>Cuenta lista</h1><p className="muted">Tu contraseña fue configurada correctamente.</p><button className="btn btn-primary" onClick={() => router.replace("/dashboard")}>Entrar al sistema</button></> : ready ? <><h1>Crear contraseña</h1><p className="muted">Esta contraseña la conocés solamente vos.</p><form onSubmit={savePassword} style={{ display: "grid", gap: 14, marginTop: 20 }}><div className="field"><label className="label">Nueva contraseña</label><input className="input" type="password" name="password" required /></div><div className="field"><label className="label">Repetir contraseña</label><input className="input" type="password" name="repeat" required /></div><button className="btn btn-primary">Guardar contraseña</button></form></> : null}
   </div></main>;
 }
+
 

@@ -1,6 +1,9 @@
-﻿from fastapi import HTTPException
+from fastapi import HTTPException
 
-from .deps import admin_client
+try:
+    from .deps import admin_client
+except ImportError:
+    from deps import admin_client
 
 
 def db():

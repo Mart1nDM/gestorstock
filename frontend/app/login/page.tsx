@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { FormEvent, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useRouter } from "next/navigation";
@@ -48,7 +47,7 @@ export default function LoginPage() {
     <div className="card page-pad" style={{ width: "min(440px,100%)" }}>
       <Link href="/" className="brand" style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
         <div style={{ position: "relative", width: 144, height: 144 }}>
-          <Image src="/logo.png" alt="MartoTech" fill sizes="144px" priority style={{ objectFit: "contain" }} />
+          <img src="/logo.png" alt="MartoTech" width={144} height={144} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
         </div>
       </Link>
       <h1 style={{ marginBottom: 6 }}>Ingresar</h1><p className="muted">Accedé a tu gestor de stock.</p>
@@ -77,4 +76,5 @@ export default function LoginPage() {
     </div>
   </main>;
 }
+
 

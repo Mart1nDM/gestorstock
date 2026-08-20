@@ -1,8 +1,13 @@
 from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from .deps import current_user, AuthUser
-from .db import db
+
+try:
+    from .deps import current_user, AuthUser
+    from .db import db
+except ImportError:
+    from deps import current_user, AuthUser
+    from db import db
 
 router = APIRouter(prefix="/api/productos", tags=["productos"])
 SORTABLE = {"id","nombre","marca","categoria","sabor","cantidad","cantidad_minima","precio_costo","precio_venta","proveedor","fecha_ingreso","fecha_vencimiento"}

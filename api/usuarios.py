@@ -3,8 +3,12 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 
-from .db import db
-from .deps import SITE_URL, current_user, require_superadmin
+try:
+    from .db import db
+    from .deps import SITE_URL, current_user, require_superadmin
+except ImportError:
+    from db import db
+    from deps import SITE_URL, current_user, require_superadmin
 
 router = APIRouter(prefix="/api/usuarios", tags=["usuarios"])
 
@@ -35,6 +39,20 @@ def _find_auth_user_by_email(email: str):
         if _normalize_email(getattr(auth_user, "email", "") or "") == _normalize_email(email):
             return auth_user
     return None
+
+
+def _invite_redirect_url() -> str:
+    site_url = (SITE_URL or "").strip().rstrip("/")
+    if not site_url or "localhost" in site_url or "127.0.0.1" in site_url:
+        site_url = "https://gestorstock-web.vercel.app"
+    return f"{site_url}/set-password"
+
+
+def _force_invite_redirect(action_link: str) -> str:
+    parsed = urlparse(action_link)
+    params = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    params["redirect_to"] = _invite_redirect_url()
+    return urlunparse(parsed._replace(query=urlencode(params, doseq=True)))
 
 
 def _ensure_profile(user_id: str, payload: dict, plan_id: str) -> dict:
@@ -111,12 +129,12 @@ def _generate_invitation(*, nombre: str, apellido: str, correo: str, telefono: s
             "email": correo,
             "options": {
                 "data": {"nombre": nombre, "apellido": apellido},
-                "redirect_to": f"{SITE_URL}/set-password",
+                "redirect_to": _invite_redirect_url(),
             },
         }
     )
 
-    invite_url = link.properties.action_link
+    invite_url = _force_invite_redirect(link.properties.action_link)
     invitation_payload = {
         "request_id": request_id,
         "profile_id": str(auth_user.id),
@@ -203,8 +221,17 @@ def invite_from_request(request_id: int, user=Depends(current_user)):
         request_id=request_id,
     )
     return {"ok": True, "invite_url": created["invite_url"], "invitation": created}
+@router.post("/solicitudes/{request_id}/contactar")
+def contact_request(request_id: int, user=Depends(current_user)):
+    require_superadmin(user)
+    request_row = db().table("contact_requests").select("*").eq("id", request_id).single().execute().data
+    if not request_row:
+        raise HTTPException(404, "Solicitud no encontrada.")
+    if request_row.get("estado") != "nuevo":
+        return {"ok": True, "updated": False}
 
-
+    db().table("contact_requests").update({"estado": "contactado"}).eq("id", request_id).execute()
+    return {"ok": True, "updated": True}
 @router.post("/{user_id}/toggle")
 def toggle_user(user_id: str, user=Depends(current_user)):
     require_superadmin(user)
@@ -216,3 +243,4 @@ def toggle_user(user_id: str, user=Depends(current_user)):
     value = not bool(row.get("activo"))
     result = db().table("profiles").update({"activo": value}).eq("id", user_id).execute()
     return result.data[0]
+

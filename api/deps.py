@@ -26,7 +26,10 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUP
 SUPABASE_PUBLISHABLE_KEY = os.environ.get("SUPABASE_PUBLISHABLE_KEY") or os.environ.get("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "")
 SUPABASE_SECRET_KEY = os.environ.get("SUPABASE_SECRET_KEY", "")
 SUPERADMIN_EMAIL = os.environ.get("SUPERADMIN_EMAIL", "").strip().lower()
-SITE_URL = os.environ.get("SITE_URL", "http://localhost:3000")
+_site_url = (os.environ.get("SITE_URL") or "").strip()
+if not _site_url or "localhost" in _site_url or "127.0.0.1" in _site_url:
+    _site_url = "https://gestorstock-web.vercel.app"
+SITE_URL = _site_url.rstrip("/")
 
 
 def _client_options() -> SyncClientOptions:

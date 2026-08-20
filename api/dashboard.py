@@ -4,8 +4,12 @@ import time
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 
-from .db import db
-from .deps import AuthUser, current_user
+try:
+    from .db import db
+    from .deps import AuthUser, current_user
+except ImportError:
+    from db import db
+    from deps import AuthUser, current_user
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 

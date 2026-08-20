@@ -3,8 +3,12 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, EmailStr
 
-from .db import db
-from .deps import current_user
+try:
+    from .db import db
+    from .deps import current_user
+except ImportError:
+    from db import db
+    from deps import current_user
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 

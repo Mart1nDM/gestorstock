@@ -1,0 +1,321 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+import AppShell from "../../components/AppShell";
+import { apiFetch } from "../../lib/api";
+import type { Profile } from "../../types";
+
+type ContactRequest = {
+  id: number;
+  nombre: string;
+  correo: string;
+  telefono: string | null;
+  plan: string | null;
+  mensaje: string;
+  estado: string;
+  creado_en: string;
+};
+
+type AccountInvitation = {
+  id: number;
+  request_id: number | null;
+  profile_id: string;
+  nombre: string;
+  correo: string;
+  telefono: string | null;
+  plan: string | null;
+  invite_url: string;
+  estado: "pendiente" | "completada";
+  created_at: string;
+  consumed_at: string | null;
+};
+
+type AdminUser = Profile & { created_at: string; plan_nombre?: string | null };
+
+type PanelData = {
+  usuarios: AdminUser[];
+  solicitudes: ContactRequest[];
+  contactos?: ContactRequest[];
+  cuentas: AccountInvitation[];
+};
+
+export default function SuperAdminPage() {
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [requests, setRequests] = useState<ContactRequest[]>([]);
+  const [invitations, setInvitations] = useState<AccountInvitation[]>([]);
+  const [q, setQ] = useState("");
+  const [error, setError] = useState("");
+  const [toast, setToast] = useState("");
+  const [me, setMe] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [busyRequestId, setBusyRequestId] = useState<number | null>(null);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const data = await apiFetch<PanelData>(`/usuarios?q=${encodeURIComponent(q)}`);
+      setUsers(data.usuarios ?? []);
+      setRequests(data.solicitudes ?? data.contactos ?? []);
+      setInvitations(data.cuentas ?? []);
+      setError("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo cargar el panel.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    apiFetch<Profile>("/auth/me").then(setMe).catch(() => setMe(null));
+  }, []);
+
+  useEffect(() => {
+    const id = setTimeout(load, 150);
+    return () => clearTimeout(id);
+  }, [q]);
+
+  async function toggle(id: string) {
+    try {
+      await apiFetch(`/usuarios/${id}/toggle`, { method: "POST" });
+      setToast("Estado actualizado.");
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo cambiar el estado.");
+    }
+  }
+
+  async function inviteRequest(requestId: number) {
+    setBusyRequestId(requestId);
+    setError("");
+    try {
+      const data = await apiFetch<{ invite_url: string }>(`/usuarios/solicitudes/${requestId}/invitar`, {
+        method: "POST",
+      });
+      await navigator.clipboard.writeText(data.invite_url);
+      setToast("Invitación generada y link copiado al portapapeles.");
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo generar la invitación.");
+    } finally {
+      setBusyRequestId(null);
+    }
+  }
+
+  async function copyLink(invitation: AccountInvitation) {
+    try {
+      await navigator.clipboard.writeText(invitation.invite_url);
+      setCopiedId(invitation.id);
+      setToast("Link copiado.");
+      window.setTimeout(() => setCopiedId(current => (current === invitation.id ? null : current)), 1800);
+    } catch {
+      setError("No se pudo copiar el enlace.");
+    }
+  }
+
+  return (
+    <AppShell>
+      <div className="page-header">
+        <div>
+          <h1>SuperAdmin</h1>
+          <p className="muted">Solicitudes, invitaciones y usuarios del sistema en un solo panel.</p>
+        </div>
+        <button className="btn btn-secondary" onClick={load} disabled={loading}>
+          {loading ? "Actualizando…" : "Actualizar"}
+        </button>
+      </div>
+
+      {error && <div className="alert alert-error">{error}</div>}
+      {toast && <div className="alert alert-success">{toast}</div>}
+
+      <div className="card section-card">
+        <input
+          className="input"
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          placeholder="Buscar por nombre, correo, plan o estado…"
+        />
+      </div>
+
+      <div className="card section-card">
+        <div className="page-header" style={{ marginBottom: 12 }}>
+          <div>
+            <h3 style={{ margin: 0 }}>Solicitudes pendientes</h3>
+            <div className="muted" style={{ fontSize: 13 }}>
+              {requests.length} solicitud{requests.length === 1 ? "" : "es"} nuevas
+            </div>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table style={{ minWidth: 920 }}>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Teléfono</th>
+                <th>Plan</th>
+                <th>Mensaje</th>
+                <th>Fecha</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {requests.map(request => (
+                <tr key={request.id}>
+                  <td>{request.nombre}</td>
+                  <td>{request.correo}</td>
+                  <td>{request.telefono || "—"}</td>
+                  <td>{request.plan || "—"}</td>
+                  <td style={{ whiteSpace: "normal", minWidth: 300 }}>{request.mensaje}</td>
+                  <td>{new Date(request.creado_en).toLocaleString("es-AR")}</td>
+                  <td>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      disabled={busyRequestId === request.id}
+                      onClick={() => inviteRequest(request.id)}
+                    >
+                      {busyRequestId === request.id ? "Generando…" : "Generar link"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {!requests.length && (
+                <tr>
+                  <td colSpan={7}>
+                    <div className="empty">No hay solicitudes pendientes.</div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card section-card">
+        <div className="page-header" style={{ marginBottom: 12 }}>
+          <div>
+            <h3 style={{ margin: 0 }}>Cuentas creadas</h3>
+            <div className="muted" style={{ fontSize: 13 }}>
+              {invitations.length} invitación{invitations.length === 1 ? "" : "es"} registradas
+            </div>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table style={{ minWidth: 1120 }}>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Plan</th>
+                <th>Estado</th>
+                <th>Creada</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invitations.map(invitation => {
+                const done = invitation.estado === "completada";
+                return (
+                  <tr key={invitation.id}>
+                    <td>{invitation.nombre}</td>
+                    <td>{invitation.correo}</td>
+                    <td>{invitation.plan || "—"}</td>
+                    <td>
+                      <span className={`status ${done ? "status-ok" : "status-zero"}`}>
+                        {done ? "Activa" : "Pendiente"}
+                      </span>
+                    </td>
+                    <td>{new Date(invitation.created_at).toLocaleString("es-AR")}</td>
+                    <td>
+                      <div className="actions">
+                        {!done && (
+                          <button className="btn btn-secondary btn-sm" onClick={() => copyLink(invitation)}>
+                            {copiedId === invitation.id ? "Copiado" : "Copiar link"}
+                          </button>
+                        )}
+                        {done && <span className="muted" style={{ fontSize: 12 }}>El enlace ya fue consumido</span>}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!invitations.length && (
+                <tr>
+                  <td colSpan={6}>
+                    <div className="empty">No hay invitaciones generadas.</div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="card section-card">
+        <div className="page-header" style={{ marginBottom: 12 }}>
+          <div>
+            <h3 style={{ margin: 0 }}>Lista global de usuarios</h3>
+            <div className="muted" style={{ fontSize: 13 }}>{users.length} cuentas visibles</div>
+          </div>
+        </div>
+        <div className="table-wrap">
+          <table style={{ minWidth: 1000 }}>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Rol</th>
+                <th>Plan</th>
+                <th>Estado</th>
+                <th>Creado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(u => {
+                const isMe = me?.id === u.id;
+                return (
+                  <tr key={u.id}>
+                    <td>
+                      {u.nombre} {u.apellido}
+                      {isMe && <div className="muted" style={{ fontSize: 12 }}>Tu cuenta</div>}
+                    </td>
+                    <td>{u.correo}</td>
+                    <td>{u.rol}</td>
+                    <td>{u.plan_nombre || "—"}</td>
+                    <td>
+                      <span className={`status ${u.activo ? "status-ok" : "status-zero"}`}>
+                        {u.activo ? "Normal" : "Bloqueado"}
+                      </span>
+                    </td>
+                    <td>{new Date(u.created_at).toLocaleDateString("es-AR")}</td>
+                    <td>
+                      <div className="actions">
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => toggle(u.id)}
+                          disabled={isMe}
+                          title={isMe ? "No podés bloquear tu propia cuenta." : "Cambiar estado"}
+                        >
+                          {u.activo ? "Bloquear" : "Desbloquear"}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!users.length && (
+                <tr>
+                  <td colSpan={7}>
+                    <div className="empty">No hay usuarios.</div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </AppShell>
+  );
+}

@@ -288,3 +288,26 @@ tr:hover td { background: rgba(255,255,255,.02); }
   transform: translateY(-2px);
   border-color: rgba(79,142,247,.72);
 }
+
+.public-support-fab {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(79,142,247,.42);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(79,142,247,.18), rgba(22,27,39,.95));
+  color: #eaf1ff;
+  box-shadow: 0 18px 40px rgba(0,0,0,.38);
+  z-index: 80;
+}
+.public-support-fab:hover { transform: translateY(-2px); border-color: rgba(79,142,247,.72); }
+.support-form { display: grid; gap: 14px; }
+.public-support-modal { width: min(680px, 100%); }
+
+@media (max-width: 720px) {
+  .public-support-fab { right: 14px; bottom: 14px; width: 52px; height: 52px; }
+}

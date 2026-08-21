@@ -10,6 +10,10 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(initialPlan);
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [supportSending, setSupportSending] = useState(false);
+  const [supportSent, setSupportSent] = useState(false);
+  const [supportError, setSupportError] = useState("");
 
   useEffect(() => {
     setSelectedPlan(initialPlan);
@@ -34,6 +38,35 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
       setError(err instanceof Error ? err.message : "No se pudo enviar la consulta.");
     } finally {
       setSending(false);
+    }
+  }
+
+  async function submitSupport(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSupportSending(true);
+    setSupportError("");
+    setSupportSent(false);
+    const formEl = e.currentTarget;
+    const form = new FormData(formEl);
+    const medio = String(form.get("medio_contacto") || "correo");
+    const mensaje = String(form.get("mensaje") || "").trim();
+    try {
+      await apiFetch("/auth/contact", {
+        method: "POST",
+        body: JSON.stringify({
+          nombre: form.get("nombre"),
+          correo: form.get("correo"),
+          telefono: form.get("telefono"),
+          plan: "Soporte",
+          mensaje: `Solicitud de contraseña temporal. Medio preferido: ${medio}.\n\n${mensaje}`,
+        }),
+      });
+      formEl.reset();
+      setSupportSent(true);
+    } catch (err) {
+      setSupportError(err instanceof Error ? err.message : "No se pudo enviar el ticket.");
+    } finally {
+      setSupportSending(false);
     }
   }
 
@@ -108,5 +141,38 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
         </form>
       </div></section>
     </main>
+    <button type="button" className="public-support-fab" onClick={() => { setSupportOpen(true); setSupportSent(false); setSupportError(""); }} aria-label="Contactar soporte" title="Soporte">
+      <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 11a8 8 0 0 1 16 0v2" />
+        <path d="M4 13h2a2 2 0 0 1 2 2v2H5a1 1 0 0 1-1-1v-3Z" />
+        <path d="M20 13h-2a2 2 0 0 0-2 2v2h3a1 1 0 0 0 1-1v-3Z" />
+        <path d="M12 19h2" />
+      </svg>
+    </button>
+    {supportOpen && (
+      <div className="modal-backdrop" onClick={() => setSupportOpen(false)}>
+        <div className="modal public-support-modal" onClick={event => event.stopPropagation()}>
+          <div className="page-header" style={{ alignItems: "center", marginBottom: 16 }}>
+            <div>
+              <h2 style={{ margin: 0 }}>Soporte de acceso</h2>
+              <p className="muted" style={{ marginBottom: 0 }}>Solicitá una contraseña temporal por correo o teléfono.</p>
+            </div>
+            <button className="btn btn-secondary btn-sm" type="button" onClick={() => setSupportOpen(false)}>Cerrar</button>
+          </div>
+          <form onSubmit={submitSupport} className="support-form">
+            <div className="form-grid">
+              <div className="field"><label className="label">Nombre</label><input className="input" name="nombre" required /></div>
+              <div className="field"><label className="label">Correo de la cuenta</label><input className="input" type="email" name="correo" required /></div>
+              <div className="field"><label className="label">Teléfono</label><input className="input" name="telefono" placeholder="Opcional" /></div>
+              <div className="field"><label className="label">Preferís respuesta por</label><select className="select" name="medio_contacto" defaultValue="correo"><option value="correo">Correo</option><option value="telefono">Teléfono</option></select></div>
+            </div>
+            <div className="field"><label className="label">Mensaje</label><textarea className="textarea" name="mensaje" required placeholder="Indicá que olvidaste tu contraseña y cómo podemos contactarte." /></div>
+            {supportError && <div className="alert alert-error">{supportError}</div>}
+            {supportSent && <div className="alert alert-success">Ticket enviado. Soporte se pondrá en contacto para darte una contraseña temporal.</div>}
+            <button className="btn btn-primary" disabled={supportSending}>{supportSending ? "Enviando…" : "Enviar ticket a soporte"}</button>
+          </form>
+        </div>
+      </div>
+    )}
   </>;
 }

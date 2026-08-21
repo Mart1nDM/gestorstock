@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { ApiError, apiFetch } from "../lib/api";
 import type { Profile } from "../types";
+import { PLAN_BY_KEY, type PlanKey } from "../lib/plan-data";
 
 const links = [
   ["📊", "Dashboard", "/dashboard"],
@@ -21,9 +22,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState("");
   const [supportOpen, setSupportOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [supportLoading, setSupportLoading] = useState(false);
   const [supportError, setSupportError] = useState("");
   const [supportSuccess, setSupportSuccess] = useState("");
+  const activePlanKey = profile?.plan_nombre?.toLowerCase() as PlanKey | undefined;
+  const activePlan = activePlanKey && PLAN_BY_KEY[activePlanKey];
 
   useEffect(() => {
     let alive = true;
@@ -121,7 +125,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <main className="main-area">
         <header className="app-topbar">
           <div><strong>Gestor de Stock</strong></div>
-          <div className="muted" style={{ fontSize: 13 }}>{profile.correo}</div>
+          <div className="app-account-info">
+            <span className="plan-pill" style={{ borderColor: activePlan?.accent }}>{activePlan?.name || profile.plan_nombre || "Plan a definir"}</span>
+            {activePlan && <span className="muted plan-limit-text">{activePlan.products}</span>}
+            <span className="muted app-account-email">{profile.correo}</span>
+          </div>
         </header>
         <section className="content">{children}</section>
       </main>
@@ -140,6 +148,33 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <path d="M12 19h2" />
         </svg>
       </button>
+
+      <button
+        type="button"
+        className="menu-fab"
+        onClick={() => setMenuOpen(open => !open)}
+        aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
+        aria-expanded={menuOpen}
+        title="Menú"
+      >
+        <span aria-hidden="true">☰</span>
+      </button>
+
+      {menuOpen && (
+        <div className="mobile-menu" role="menu">
+          {links.map(([icon, label, href]) => (
+            <Link key={href} href={href} role="menuitem" className={pathname === href || pathname.startsWith(href.split("?")[0]) ? "active" : ""} onClick={() => setMenuOpen(false)}>
+              <span>{icon}</span><span>{label}</span>
+            </Link>
+          ))}
+          {profile.rol === "superadmin" && (
+            <Link href="/superadmin" role="menuitem" className={pathname.startsWith("/superadmin") ? "active" : ""} onClick={() => setMenuOpen(false)}>
+              <span>🛡️</span><span>SuperAdmin</span>
+            </Link>
+          )}
+          <button type="button" role="menuitem" onClick={logout}><span>🚪</span><span>Cerrar sesión</span></button>
+        </div>
+      )}
 
       {supportOpen && (
         <div className="modal-backdrop" onClick={() => setSupportOpen(false)}>

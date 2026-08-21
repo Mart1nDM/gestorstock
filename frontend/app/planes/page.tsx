@@ -88,7 +88,7 @@ export default function PlansPage() {
                 {rows.map(row => (
                   <tr key={row.label}>
                     <td>{row.label}</td>
-                    {row.values.map(value => <td key={value}>{value}</td>)}
+                    {row.values.map((value, valueIndex) => <td key={`${row.label}-${valueIndex}`}>{value}</td>)}
                   </tr>
                 ))}
               </tbody>

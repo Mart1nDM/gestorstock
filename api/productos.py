@@ -11,6 +11,7 @@ except ImportError:
 
 router = APIRouter(prefix="/api/productos", tags=["productos"])
 SORTABLE = {"id","nombre","marca","categoria","sabor","cantidad","cantidad_minima","precio_costo","precio_venta","proveedor","fecha_ingreso","fecha_vencimiento"}
+PRODUCT_LIMITS = {"gratis": 10, "premium": 100, "pro": None}
 
 class ProductIn(BaseModel):
     nombre: str = Field(min_length=1)
@@ -48,6 +49,12 @@ def get_product(product_id: int, user: AuthUser = Depends(current_user)):
 
 @router.post("")
 def create_product(payload: ProductIn, user: AuthUser = Depends(current_user)):
+    plan_name = str(user.profile.get("plan_nombre") or "").strip().lower()
+    product_limit = PRODUCT_LIMITS.get(plan_name)
+    if product_limit is not None and user.profile.get("rol") != "superadmin":
+        current_count = db().table("productos").select("id", count="exact").eq("owner_id", user.id).eq("activo", True).execute().count or 0
+        if current_count >= product_limit:
+            raise HTTPException(403, f"Tu plan {plan_name.title()} permite hasta {product_limit} productos. Elegí un plan superior para agregar más.")
     data = payload.model_dump(); data["owner_id"] = user.id; data["activo"] = True
     try:
         result = db().table("productos").insert(data).execute()

@@ -165,49 +165,7 @@ tr:hover td { background: rgba(255,255,255,.02); }
   .page-pad { padding: 18px; }
   .grid-4, .grid-2, .form-grid, .preview-row { grid-template-columns: 1fr; }
   .app-shell { grid-template-columns: 1fr; }
-  .sidebar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    height: auto;
-    padding: 8px 10px;
-    position: sticky;
-    top: 0;
-    z-index: 35;
-    overflow: hidden;
-  }
-  .sidebar .brand {
-    flex: 0 0 42px;
-    padding: 0;
-  }
-  .sidebar .brand > div {
-    width: 42px !important;
-    height: 42px !important;
-  }
-  .nav {
-    display: flex;
-    flex: 1;
-    min-width: 0;
-    gap: 4px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-  .nav::-webkit-scrollbar { display: none; }
-  .nav a, .nav button {
-    flex: 0 0 auto;
-    padding: 9px 10px;
-    white-space: nowrap;
-    text-align: center;
-  }
-  .sidebar .nav-label { display: inline; }
-  .sidebar-footer {
-    position: static;
-    display: block;
-    flex: 0 0 auto;
-  }
-  .sidebar-footer .card { display: none; }
-  .sidebar-footer > button { width: auto; }
-  .sidebar-footer > button > span { padding: 9px; white-space: nowrap; }
+  .sidebar { display: none; }
   .app-topbar { padding: 0 14px; }
   .app-account-info { gap: 6px; }
   .plan-limit-text { display: none; }
@@ -224,8 +182,8 @@ tr:hover td { background: rgba(255,255,255,.02); }
     display: grid;
     place-items: center;
     position: fixed;
-    right: 14px;
-    bottom: 78px;
+    left: 14px;
+    bottom: 14px;
     width: 52px;
     height: 52px;
     border: 1px solid rgba(124,58,237,.55);
@@ -240,8 +198,8 @@ tr:hover td { background: rgba(255,255,255,.02); }
   .mobile-menu {
     display: grid;
     position: fixed;
-    right: 14px;
-    bottom: 140px;
+    left: 14px;
+    bottom: 76px;
     width: min(230px, calc(100vw - 28px));
     padding: 8px;
     gap: 4px;

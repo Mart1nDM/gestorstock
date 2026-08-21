@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
@@ -89,6 +90,7 @@ def _list_account_invitations() -> list[dict]:
 
 
 def _generate_invitation(*, nombre: str, apellido: str, correo: str, telefono: str | None, plan: str, request_id: int | None = None) -> dict:
+    existing_invitation = None
     if request_id is not None:
         try:
             existing_invitation = db().table("account_invitations").select("*").eq("request_id", request_id).limit(1).execute().data or []
@@ -96,11 +98,11 @@ def _generate_invitation(*, nombre: str, apellido: str, correo: str, telefono: s
             if _is_missing_account_invitations_table(exc):
                 raise HTTPException(500, "Falta crear la tabla account_invitations en Supabase.") from exc
             raise
-        if existing_invitation:
-            return existing_invitation[0]
+        existing_invitation = existing_invitation[0] if existing_invitation else None
 
     plan_id = _ensure_plan_id(plan)
     auth_user = _find_auth_user_by_email(correo)
+    existing_auth_user = auth_user is not None
     if not auth_user:
         created = db().auth.admin.create_user(
             {
@@ -125,7 +127,7 @@ def _generate_invitation(*, nombre: str, apellido: str, correo: str, telefono: s
 
     link = db().auth.admin.generate_link(
         {
-            "type": "invite",
+            "type": "recovery" if existing_auth_user else "invite",
             "email": correo,
             "options": {
                 "data": {"nombre": nombre, "apellido": apellido},
@@ -146,7 +148,10 @@ def _generate_invitation(*, nombre: str, apellido: str, correo: str, telefono: s
         "estado": "pendiente",
     }
     try:
-        inserted = db().table("account_invitations").insert(invitation_payload).execute().data[0]
+        if existing_invitation:
+            inserted = db().table("account_invitations").update(invitation_payload).eq("id", existing_invitation["id"]).execute().data[0]
+        else:
+            inserted = db().table("account_invitations").insert(invitation_payload).execute().data[0]
     except Exception as exc:
         if _is_missing_account_invitations_table(exc):
             raise HTTPException(500, "Falta crear la tabla account_invitations en Supabase.") from exc
@@ -176,7 +181,8 @@ def list_users(q: str = "", user=Depends(current_user)):
         r["plan_id"] = plan.get("id")
         r["plan_nombre"] = plan.get("nombre")
 
-    return {"usuarios": users, "solicitudes": solicitudes, "cuentas": cuentas}
+    planes = db().table("plans").select("id,nombre").eq("activo", True).order("nombre").execute().data or []
+    return {"usuarios": users, "solicitudes": solicitudes, "cuentas": cuentas, "planes": planes}
 
 
 @router.post("")
@@ -232,6 +238,57 @@ def contact_request(request_id: int, user=Depends(current_user)):
 
     db().table("contact_requests").update({"estado": "contactado"}).eq("id", request_id).execute()
     return {"ok": True, "updated": True}
+
+
+@router.delete("/solicitudes/{request_id}")
+def delete_request(request_id: int, user=Depends(current_user)):
+    require_superadmin(user)
+    request_row = db().table("contact_requests").select("id").eq("id", request_id).limit(1).execute().data or []
+    if not request_row:
+        raise HTTPException(404, "Solicitud no encontrada.")
+    db().table("contact_requests").delete().eq("id", request_id).execute()
+    return {"ok": True, "deleted": True}
+
+
+class TemporaryPasswordIn(BaseModel):
+    password: str
+
+
+@router.post("/{user_id}/temporary-password")
+def set_temporary_password(user_id: str, payload: TemporaryPasswordIn, user=Depends(current_user)):
+    require_superadmin(user)
+    if len(payload.password) < 6:
+        raise HTTPException(400, "La contraseña temporal debe tener al menos 6 caracteres.")
+    if user_id == user.id:
+        raise HTTPException(400, "Usá la opción de perfil para cambiar tu propia contraseña.")
+    try:
+        updated = db().auth.admin.update_user_by_id(user_id, {"password": payload.password})
+        if not getattr(updated, "user", None):
+            raise HTTPException(404, "Usuario no encontrado.")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(400, "No se pudo establecer la contraseña temporal.") from exc
+    return {"ok": True}
+
+
+class PlanUpdateIn(BaseModel):
+    plan: str
+
+
+@router.put("/{user_id}/plan")
+def update_user_plan(user_id: str, payload: PlanUpdateIn, user=Depends(current_user)):
+    require_superadmin(user)
+    plan_name = payload.plan.strip()
+    if plan_name not in {"Gratis", "Premium", "Pro"}:
+        raise HTTPException(400, "Seleccioná un plan.")
+    plan_id = _ensure_plan_id(plan_name)
+    result = db().table("profiles").update({"plan_id": plan_id}).eq("id", user_id).execute()
+    if not result.data:
+        raise HTTPException(404, "Usuario no encontrado.")
+    return {"ok": True, "plan_id": plan_id, "plan_nombre": plan_name}
+
+
 @router.post("/{user_id}/toggle")
 def toggle_user(user_id: str, user=Depends(current_user)):
     require_superadmin(user)

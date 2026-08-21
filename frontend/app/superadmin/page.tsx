@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import AppShell from "../../components/AppShell";
 import { apiFetch } from "../../lib/api";
 import type { Profile } from "../../types";
+import { PLANS } from "../../lib/plan-data";
 
 type ContactRequest = {
   id: number;
@@ -38,6 +39,7 @@ type PanelData = {
   solicitudes: ContactRequest[];
   contactos?: ContactRequest[];
   cuentas: AccountInvitation[];
+  planes?: { id: string; nombre: string }[];
 };
 
 export default function SuperAdminPage() {
@@ -51,6 +53,8 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(false);
   const [busyRequestId, setBusyRequestId] = useState<number | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [temporaryPasswordUserId, setTemporaryPasswordUserId] = useState<string | null>(null);
+  const [planSavingUserId, setPlanSavingUserId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -64,6 +68,20 @@ export default function SuperAdminPage() {
       setError(e instanceof Error ? e.message : "No se pudo cargar el panel.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function changePlan(userId: string, plan: string) {
+    setPlanSavingUserId(userId);
+    setError("");
+    try {
+      await apiFetch(`/usuarios/${userId}/plan`, { method: "PUT", body: JSON.stringify({ plan }) });
+      setToast("Plan actualizado.");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo actualizar el plan.");
+    } finally {
+      setPlanSavingUserId(null);
     }
   }
 
@@ -93,13 +111,51 @@ export default function SuperAdminPage() {
       const data = await apiFetch<{ invite_url: string }>(`/usuarios/solicitudes/${requestId}/invitar`, {
         method: "POST",
       });
-      await navigator.clipboard.writeText(data.invite_url);
-      setToast("Invitación generada y link copiado al portapapeles.");
+      try {
+        await navigator.clipboard.writeText(data.invite_url);
+        setToast("Invitación generada y link copiado al portapapeles.");
+      } catch {
+        setToast(`Invitación generada: ${data.invite_url}`);
+      }
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo generar la invitación.");
     } finally {
       setBusyRequestId(null);
+    }
+  }
+
+  async function deleteRequest(requestId: number) {
+    if (!window.confirm("¿Eliminar esta solicitud? Esta acción no se puede deshacer.")) return;
+    setBusyRequestId(requestId);
+    setError("");
+    try {
+      await apiFetch(`/usuarios/solicitudes/${requestId}`, { method: "DELETE" });
+      setToast("Solicitud eliminada.");
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo eliminar la solicitud.");
+    } finally {
+      setBusyRequestId(null);
+    }
+  }
+
+  async function setTemporaryPassword(userId: string, email: string) {
+    const password = window.prompt(`Contraseña temporal para ${email} (mínimo 6 caracteres):`);
+    if (!password) return;
+    setTemporaryPasswordUserId(userId);
+    setError("");
+    try {
+      await apiFetch(`/usuarios/${userId}/temporary-password`, {
+        method: "POST",
+        body: JSON.stringify({ password }),
+      });
+      await navigator.clipboard.writeText(password).catch(() => undefined);
+      setToast("Contraseña temporal establecida y copiada al portapapeles.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo establecer la contraseña temporal.");
+    } finally {
+      setTemporaryPasswordUserId(null);
     }
   }
 
@@ -186,13 +242,18 @@ export default function SuperAdminPage() {
                   <td style={{ whiteSpace: "normal", minWidth: 300 }}>{request.mensaje}</td>
                   <td>{new Date(request.creado_en).toLocaleString("es-AR")}</td>
                   <td>
-                    <button
-                      className={isSupport ? "btn btn-secondary btn-sm" : "btn btn-primary btn-sm"}
-                      disabled={busyRequestId === request.id}
-                      onClick={() => isSupport ? contactRequest(request.id) : inviteRequest(request.id)}
-                    >
-                      {busyRequestId === request.id ? "Procesando…" : isSupport ? "Contactar" : "Generar link"}
-                    </button>
+                    <div className="actions">
+                      <button
+                        className={isSupport ? "btn btn-secondary btn-sm" : "btn btn-primary btn-sm"}
+                        disabled={busyRequestId === request.id}
+                        onClick={() => isSupport ? contactRequest(request.id) : inviteRequest(request.id)}
+                      >
+                        {busyRequestId === request.id ? "Procesando…" : isSupport ? "Contactar" : "Generar link"}
+                      </button>
+                      <button className="btn btn-danger btn-sm" disabled={busyRequestId === request.id} onClick={() => deleteRequest(request.id)}>
+                        Eliminar
+                      </button>
+                    </div>
                   </td>
                 </tr>
                 );
@@ -300,7 +361,12 @@ export default function SuperAdminPage() {
                     </td>
                     <td>{u.correo}</td>
                     <td>{u.rol}</td>
-                    <td>{u.plan_nombre || "—"}</td>
+                    <td>
+                      <select className="select plan-select" value={u.plan_nombre || ""} onChange={e => changePlan(u.id, e.target.value)} disabled={planSavingUserId === u.id}>
+                        <option value="" disabled>Sin plan</option>
+                        {PLANS.map(plan => <option key={plan.key} value={plan.name}>{plan.name}</option>)}
+                      </select>
+                    </td>
                     <td>
                       <span className={`status ${u.activo ? "status-ok" : "status-zero"}`}>
                         {u.activo ? "Normal" : "Bloqueado"}
@@ -309,6 +375,11 @@ export default function SuperAdminPage() {
                     <td>{new Date(u.created_at).toLocaleDateString("es-AR")}</td>
                     <td>
                       <div className="actions">
+                        {!isMe && (
+                          <button className="btn btn-secondary btn-sm" onClick={() => setTemporaryPassword(u.id, u.correo)} disabled={temporaryPasswordUserId === u.id}>
+                            {temporaryPasswordUserId === u.id ? "Guardando…" : "Contraseña temporal"}
+                          </button>
+                        )}
                         <button
                           className="btn btn-secondary btn-sm"
                           onClick={() => toggle(u.id)}

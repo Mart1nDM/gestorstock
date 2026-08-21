@@ -9,10 +9,6 @@ export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetMessage, setResetMessage] = useState("");
-  const [resetError, setResetError] = useState("");
-  const [resetLoading, setResetLoading] = useState(false);
 
   async function login(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -23,24 +19,6 @@ export default function LoginPage() {
     if (error) setError("Correo o contraseña incorrectos, o la cuenta está bloqueada.");
     else router.replace("/dashboard");
     setLoading(false);
-  }
-
-  async function sendReset(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setResetError("");
-    setResetMessage("");
-    setResetLoading(true);
-    const email = resetEmail.trim();
-    if (!email) {
-      setResetError("Escribí el correo de la cuenta.");
-      setResetLoading(false);
-      return;
-    }
-    const redirectTo = `${window.location.origin}/set-password`;
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-    if (error) setResetError(error.message);
-    else setResetMessage("Te enviamos un enlace para restablecer la contraseña.");
-    setResetLoading(false);
   }
 
   return <main className="container" style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
@@ -59,20 +37,11 @@ export default function LoginPage() {
       </form>
       <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border)", display: "grid", gap: 12 }}>
         <div>
-          <h3 style={{ margin: 0 }}>Restablecer contraseña</h3>
-          <p className="muted" style={{ margin: "6px 0 0" }}>Te enviamos un link para crear una nueva.</p>
+          <h3 style={{ margin: 0 }}>¿Olvidaste tu contraseña?</h3>
+          <p className="muted" style={{ margin: "6px 0 0" }}>Solicitá al administrador una contraseña temporal para volver a ingresar.</p>
         </div>
-        <form onSubmit={sendReset} style={{ display: "grid", gap: 12 }}>
-          <div className="field">
-            <label className="label">Correo de la cuenta</label>
-            <input className="input" type="email" value={resetEmail} onChange={e => setResetEmail(e.target.value)} placeholder="nombre@correo.com" />
-          </div>
-          {resetError && <div className="alert alert-error">{resetError}</div>}
-          {resetMessage && <div className="alert alert-success">{resetMessage}</div>}
-          <button className="btn btn-secondary" disabled={resetLoading}>{resetLoading ? "Enviando…" : "Enviar enlace de restablecimiento"}</button>
-        </form>
       </div>
-      <p className="muted" style={{ fontSize: 13, marginTop: 18 }}>Las cuentas se crean desde administración. La contraseña la configura cada usuario mediante su invitación.</p>
+      <p className="muted" style={{ fontSize: 13, marginTop: 18 }}>Las cuentas se crean desde administración. La contraseña se configura mediante la invitación o una contraseña temporal.</p>
     </div>
   </main>;
 }

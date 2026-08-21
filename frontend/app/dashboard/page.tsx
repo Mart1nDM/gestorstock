@@ -29,7 +29,7 @@ export default function DashboardPage() {
         <Metric icon="🏷️" title="Categorías" value={data.categorias} />
       </div>
       <div className="card section-card" style={{ marginTop: 16 }}><div className="muted">Unidades en stock</div><div style={{ fontSize: 27, fontWeight: 800 }}>{data.stock.unidades}</div><div className="muted" style={{ marginTop: 12 }}>Unidades vendidas históricas: <strong style={{ color: "var(--text)" }}>{data.ventas.unidades_vendidas}</strong></div></div>
-      <div className="card section-card" style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 12 }}><span style={{ fontSize: 25 }}>🏆</span><span className="muted">Producto más vendido (histórico):</span><strong>{data.producto_mas_vendido || "—"}</strong></div>
+      <div className="card section-card best-seller" style={{ marginTop: 16 }}><span className="best-seller-icon" style={{ fontSize: 25 }}>🏆</span><span className="muted">Producto más vendido (histórico):</span><strong>{data.producto_mas_vendido || "—"}</strong></div>
     </>}
   </AppShell>;
 }

@@ -103,8 +103,8 @@ button { cursor: pointer; }
 .plans-hero { padding: 78px 0 24px; }
 .plans-section { padding: 18px 0 28px; }
 .plans-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; }
-.plan-card { position: relative; padding: 22px; border-top: 4px solid transparent; display: grid; gap: 16px; }
-.plan-card.featured { transform: translateY(-4px); box-shadow: 0 16px 36px rgba(0,0,0,.24); }
+.plan-card { position: relative; padding: 58px 22px 22px; border-top: 4px solid transparent; display: grid; grid-template-rows: auto auto 1fr auto; gap: 16px; }
+.plan-card.featured { box-shadow: 0 16px 36px rgba(0,0,0,.24); }
 .plan-tag { position: absolute; top: 16px; right: 16px; background: rgba(79,142,247,.12); color: #cfe0ff; border: 1px solid rgba(79,142,247,.35); padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; }
 .plan-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
 .plan-head h2 { margin: 0 0 6px; font-size: 24px; }
@@ -163,6 +163,9 @@ tr:hover td { background: rgba(255,255,255,.02); }
 .section-card { padding: 18px; margin-bottom: 14px; }
 .section-title { margin: 0 0 14px; color: #bcd2ff; font-size: 15px; }
 .actions { display:flex; gap:8px; flex-wrap:wrap; }
+.plan-select { min-width: 120px; padding: 7px 9px; font-size: 13px; }
+.best-seller { display: grid; grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr); align-items: center; gap: 12px; }
+.best-seller strong { min-width: 0; overflow-wrap: anywhere; }
 .empty { padding: 28px; text-align:center; color: var(--muted); }
 .alert { padding: 10px 12px; border-radius: 9px; margin: 12px 0; }
 .alert-error { background: #3a1720; color: #fecaca; border: 1px solid #6b1b2b; }
@@ -200,7 +203,8 @@ tr:hover td { background: rgba(255,255,255,.02); }
   .plan-price { font-size: 28px; }
   .table-wrap { max-width: 100%; }
   .landing-hero { padding-top: 55px; }
-  .support-fab { right: 14px; bottom: 14px; width: 52px; height: 52px; }
+  .support-fab, .menu-fab { width: 52px; height: 52px; bottom: 14px; }
+  .support-fab { right: 14px; }
   .menu-fab {
     display: grid;
     place-items: center;

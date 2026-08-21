@@ -23,11 +23,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [authError, setAuthError] = useState("");
   const [supportOpen, setSupportOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState("");
+  const [darkMode, setDarkMode] = useState(true);
   const [supportLoading, setSupportLoading] = useState(false);
   const [supportError, setSupportError] = useState("");
   const [supportSuccess, setSupportSuccess] = useState("");
   const activePlanKey = profile?.plan_nombre?.toLowerCase() as PlanKey | undefined;
   const activePlan = activePlanKey && PLAN_BY_KEY[activePlanKey];
+
+  useEffect(() => {
+    const savedTheme = window.localStorage.getItem("gestor-stock-theme");
+    const nextDarkMode = savedTheme !== "light";
+    setDarkMode(nextDarkMode);
+    document.documentElement.dataset.theme = nextDarkMode ? "dark" : "light";
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -54,6 +67,39 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   async function logout() {
     await supabase.auth.signOut();
     router.replace("/login");
+  }
+
+  function toggleTheme() {
+    const nextDarkMode = !darkMode;
+    setDarkMode(nextDarkMode);
+    document.documentElement.dataset.theme = nextDarkMode ? "dark" : "light";
+    window.localStorage.setItem("gestor-stock-theme", nextDarkMode ? "dark" : "light");
+  }
+
+  async function changePassword(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const password = String(form.get("password") || "");
+    const confirmation = String(form.get("confirmation") || "");
+    setPasswordError("");
+    setPasswordSuccess("");
+    if (password.length < 6) {
+      setPasswordError("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+    if (password !== confirmation) {
+      setPasswordError("Las contraseñas no coinciden.");
+      return;
+    }
+    setPasswordLoading(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setPasswordLoading(false);
+    if (error) {
+      setPasswordError(error.message);
+      return;
+    }
+    setPasswordSuccess("Contraseña actualizada correctamente.");
+    e.currentTarget.reset();
   }
 
   async function sendSupportTicket(e: FormEvent<HTMLFormElement>) {
@@ -128,9 +174,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="app-account-info">
             <span className="plan-pill" style={{ borderColor: activePlan?.accent }}>{activePlan?.name || profile.plan_nombre || "Plan a definir"}</span>
             {activePlan && <span className="muted plan-limit-text">{activePlan.products}</span>}
-            <span className="muted app-account-email">{profile.correo}</span>
+            <button type="button" className="profile-trigger" onClick={() => setProfileOpen(open => !open)} aria-label="Abrir perfil" aria-expanded={profileOpen} title="Perfil">
+              <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="8" r="3.5" />
+                <path d="M5 20c.8-3.2 3.1-5 7-5s6.2 1.8 7 5" />
+              </svg>
+            </button>
           </div>
         </header>
+        {profileOpen && (
+          <div className="profile-menu">
+            <div className="profile-summary"><strong>{profile.nombre} {profile.apellido}</strong><span className="muted">{profile.correo}</span></div>
+            <button type="button" onClick={() => { setPasswordOpen(true); setProfileOpen(false); setPasswordError(""); setPasswordSuccess(""); }}>🔒 Cambiar contraseña</button>
+            <button type="button" onClick={toggleTheme}>{darkMode ? "☀️ Activar modo claro" : "🌙 Activar modo oscuro"}</button>
+          </div>
+        )}
         <section className="content">{children}</section>
       </main>
 
@@ -198,6 +256,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               {supportError && <div className="alert alert-error">{supportError}</div>}
               {supportSuccess && <div className="alert alert-success">{supportSuccess}</div>}
               <button className="btn btn-primary" disabled={supportLoading}>{supportLoading ? "Enviando…" : "Enviar ticket"}</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {passwordOpen && (
+        <div className="modal-backdrop" onClick={() => setPasswordOpen(false)}>
+          <div className="modal password-modal" onClick={e => e.stopPropagation()}>
+            <div className="page-header" style={{ alignItems: "center", marginBottom: 16 }}>
+              <div><h2 style={{ margin: 0 }}>Cambiar contraseña</h2><p className="muted" style={{ marginBottom: 0 }}>Elegí una contraseña nueva para tu cuenta.</p></div>
+              <button className="btn btn-secondary btn-sm" type="button" onClick={() => setPasswordOpen(false)}>Cerrar</button>
+            </div>
+            <form onSubmit={changePassword} className="password-form">
+              <div className="field"><label className="label">Nueva contraseña</label><input className="input" name="password" type="password" minLength={6} required /></div>
+              <div className="field"><label className="label">Repetir contraseña</label><input className="input" name="confirmation" type="password" minLength={6} required /></div>
+              {passwordError && <div className="alert alert-error">{passwordError}</div>}
+              {passwordSuccess && <div className="alert alert-success">{passwordSuccess}</div>}
+              <button className="btn btn-primary" disabled={passwordLoading}>{passwordLoading ? "Actualizando…" : "Actualizar contraseña"}</button>
             </form>
           </div>
         </div>

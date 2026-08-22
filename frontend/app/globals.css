@@ -13,7 +13,7 @@
   --muted: #8A91A8;
   --border: #2E3450;
 }
-
+ 
 :root[data-theme="light"] {
   --bg-main: #F4F7FB;
   --bg-sidebar: #FFFFFF;

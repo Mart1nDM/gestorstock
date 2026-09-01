@@ -56,4 +56,48 @@ export type Dashboard = {
   };
   categorias: number;
   producto_mas_vendido: string | null;
+  graficas?: {
+    ventas_por_dia: { dia: string; total: number }[];
+    ventas_por_categoria: { name: string; value: number }[];
+    unidades_por_categoria: { name: string; value: number }[];
+    stock_por_categoria: { name: string; value: number }[];
+    valor_por_categoria: { name: string; value: number }[];
+    composicion_stock: { name: string; value: number }[];
+  };
+};
+
+export type PlanInfo = {
+  key: string;
+  nombre: string;
+  precio: string;
+  subtitle: string;
+  products: string;
+  limite_productos: number | null;
+  precio_mensual: number;
+  accent: string;
+  destacado: boolean;
+  soporte: {
+    nivel: string;
+    tiempo: string;
+    canal: string[];
+    personalizado: boolean;
+    prioridad: string;
+  };
+  metas_ventas: boolean;
+  reportes: string[];
+  graficas: string[];
+  features: string[];
+  limites: {
+    productos: number | null;
+    usuarios: number | string;
+    historial_ventas: string;
+  };
+};
+
+export type MetaData = {
+  periodo: string;
+  meta_actual: number;
+  total_periodo: number;
+  progreso: number | null;
+  historial: { periodo: string; meta: number }[];
 };

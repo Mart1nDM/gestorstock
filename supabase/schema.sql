@@ -90,6 +90,17 @@ create table if not exists public.account_invitations (
 create index if not exists ix_account_invitations_profile_estado on public.account_invitations(profile_id, estado);
 create index if not exists ix_account_invitations_request on public.account_invitations(request_id);
 
+create table if not exists public.sales_goals (
+  id bigint generated always as identity primary key,
+  owner_id uuid not null references public.profiles(id) on delete cascade,
+  periodo text not null,
+  meta numeric(14,2) not null default 0 check (meta >= 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (owner_id, periodo)
+);
+create index if not exists ix_sales_goals_owner on public.sales_goals(owner_id, periodo);
+
 insert into public.plans (nombre, descripcion)
 values ('Plan a definir', 'Plan comercial pendiente de definir por el administrador.')
 on conflict (nombre) do nothing;
@@ -158,11 +169,13 @@ alter table public.ventas enable row level security;
 alter table public.plans enable row level security;
 alter table public.contact_requests enable row level security;
 alter table public.account_invitations enable row level security;
+alter table public.sales_goals enable row level security;
 
 create policy "profiles own row" on public.profiles for select to authenticated using (id = auth.uid());
 create policy "products own rows" on public.productos for all to authenticated using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 create policy "sales own rows" on public.ventas for select to authenticated using (owner_id = auth.uid());
 create policy "plans readable" on public.plans for select to authenticated using (true);
+create policy "goals own rows" on public.sales_goals for all to authenticated using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 
 -- Importante: el rol superadmin NO depende de user_metadata. Se controla en profiles.
 -- Para crear el primer superadmin, creá el usuario en Supabase Auth y luego ejecutá:

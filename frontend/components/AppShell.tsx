@@ -10,6 +10,7 @@ import { PLAN_BY_KEY, type PlanKey } from "../lib/plan-data";
 
 const links = [
   ["📊", "Dashboard", "/dashboard"],
+  ["📈", "Métricas", "/metricas"],
   ["➕", "Agregar Producto", "/productos?nuevo=1"],
   ["🔎", "Inventario", "/productos"],
   ["🛒", "Ventas", "/ventas"],
@@ -51,7 +52,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
           await supabase.auth.signOut();
-          router.replace("/login");
+          router.replace("/");
           return;
         }
         if (alive) setAuthError(error instanceof Error ? error.message : "No se pudo validar la sesión.");
@@ -66,7 +67,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   async function logout() {
     await supabase.auth.signOut();
-    router.replace("/login");
+    router.replace("/");
   }
 
   function toggleTheme() {
@@ -137,7 +138,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   if (loading) return <div className="empty" style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>Cargando sistema...</div>;
-  if (authError) return <main className="container" style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}><div className="card page-pad" style={{ width: "min(560px,100%)" }}><h1>No se pudo abrir el sistema</h1><p className="alert alert-error">{authError}</p><button className="btn btn-secondary" onClick={() => router.replace("/login")}>Volver al login</button></div></main>;
+  if (authError) return <main className="container" style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}><div className="card page-pad" style={{ width: "min(560px,100%)" }}><h1>No se pudo abrir el sistema</h1><p className="alert alert-error">{authError}</p><button className="btn btn-secondary" onClick={() => router.replace("/")}>Volver al inicio</button></div></main>;
   if (!profile) return null;
 
   return (

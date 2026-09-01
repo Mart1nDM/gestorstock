@@ -1,11 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
+import { supabase } from "../lib/supabase";
 import { PLANS } from "../lib/plan-data";
 
+type AuthTab = "login" | "register";
+
 export default function LandingPageClient({ initialPlan }: { initialPlan: string }) {
+  const router = useRouter();
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
@@ -14,10 +19,25 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
   const [supportSending, setSupportSending] = useState(false);
   const [supportSent, setSupportSent] = useState(false);
   const [supportError, setSupportError] = useState("");
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authTab, setAuthTab] = useState<AuthTab>("login");
+  const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [regSent, setRegSent] = useState(false);
+  const [regError, setRegError] = useState("");
+  const [regSending, setRegSending] = useState(false);
 
   useEffect(() => {
     setSelectedPlan(initialPlan);
   }, [initialPlan]);
+
+  function openAuth(tab: AuthTab) {
+    setAuthTab(tab);
+    setLoginError("");
+    setRegError("");
+    setRegSent(false);
+    setAuthOpen(true);
+  }
 
   async function submitContact(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -70,13 +90,55 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
     }
   }
 
+  async function submitLogin(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoginError("");
+    setLoginLoading(true);
+    const form = new FormData(e.currentTarget);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: String(form.get("email")),
+      password: String(form.get("password")),
+    });
+    if (error) setLoginError("Correo o contraseña incorrectos, o la cuenta está bloqueada.");
+    else router.replace("/dashboard");
+    setLoginLoading(false);
+  }
+
+  async function submitRegister(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setRegSending(true);
+    setRegError("");
+    setRegSent(false);
+    const formEl = e.currentTarget;
+    const form = new FormData(formEl);
+    const regPlan = String(form.get("plan") || selectedPlan);
+    try {
+      await apiFetch("/auth/contact", {
+        method: "POST",
+        body: JSON.stringify({
+          nombre: form.get("nombre"),
+          correo: form.get("correo"),
+          telefono: form.get("telefono"),
+          plan: regPlan,
+          mensaje: "Solicitud para crear una cuenta. Quiero comenzar a usar el gestor.",
+        }),
+      });
+      formEl.reset();
+      setRegSent(true);
+    } catch (err) {
+      setRegError(err instanceof Error ? err.message : "No se pudo enviar la solicitud.");
+    } finally {
+      setRegSending(false);
+    }
+  }
+
   return <>
     <header className="topbar"><div className="container topbar-inner">
-      <Link href="/" className="brand"><span>●</span> MartoTech</Link>
+      <Link href="/" className="brand"><img src="/logo.png" alt="MartoTech" style={{ width: 34, height: 34, objectFit: "contain", borderRadius: 8, verticalAlign: "middle", marginRight: 10 }} /> GESTOR ONLINE</Link>
       <nav style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <Link className="btn btn-ghost" href="/planes">Planes</Link>
-        <a className="btn btn-ghost" href="#contacto">Contacto</a>
-        <Link className="btn btn-primary" href="/login">Ingresar</Link>
+        <Link className="btn btn-secondary" href="/#solicitar" onClick={() => openAuth("register")}>Solicitar cuenta</Link>
+        <button className="btn btn-primary" onClick={() => openAuth("login")}>Ingresar</button>
       </nav>
     </div></header>
 
@@ -85,11 +147,11 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
         <div>
           <div className="badge">📦 Gestión de stock en la nube</div>
           <h1 className="hero-title">Tu inventario, ventas y métricas <em>en un solo lugar.</em></h1>
-          <p className="hero-copy">Gestor de Stock es la evolución web de tu aplicación actual: productos, stock, ventas, alertas y métricas, separados por cada cuenta de negocio.</p>
+          <p className="hero-copy">Gestor Online es la evolución web de tu aplicación actual: productos, stock, ventas, alertas y métricas, separados por cada cuenta de negocio.</p>
           <div className="hero-actions">
-            <a href="#contacto" className="btn btn-primary">Solicitar una cuenta</a>
+            <button className="btn btn-primary" onClick={() => openAuth("register")}>Solicitar una cuenta</button>
             <Link href="/planes" className="btn btn-secondary">Comparar planes</Link>
-            <Link href="/login" className="btn btn-secondary">Ya tengo una cuenta</Link>
+            <button className="btn btn-secondary" onClick={() => openAuth("login")}>Ya tengo una cuenta</button>
           </div>
         </div>
         <div className="card preview">
@@ -119,7 +181,7 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
         </div>
       </div></section>
 
-      <section id="contacto" className="contact"><div className="container contact-grid">
+      <section id="contacto" className="contact"><div id="solicitar" className="container contact-grid">
         <div><div className="badge">✉️ Solicitud de cuenta</div><h2 style={{ fontSize: 38, margin: "18px 0 10px" }}>¿Querés usar el sistema?</h2><p className="muted" style={{ lineHeight: 1.7 }}>Mandame tus datos y contame qué plan te interesa. Desde el panel de administración puedo crear tu cuenta y enviarte la invitación para que configures tu propia contraseña.</p></div>
         <form className="card page-pad" onSubmit={submitContact}>
           <div className="form-grid">
@@ -141,6 +203,61 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
         </form>
       </div></section>
     </main>
+
+    <footer className="footer"><div className="container footer-inner">
+      <div className="footer-brand"><img src="/logo.png" alt="MartoTech" style={{ width: 30, height: 30, objectFit: "contain", borderRadius: 6, verticalAlign: "middle", marginRight: 9 }} /> Gestor Online</div>
+      <div className="footer-social">
+        <a href="https://instagram.com/TU_USUARIO" target="_blank" rel="noopener noreferrer" aria-label="Instagram" title="Instagram">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+        </a>
+        <a href="https://github.com/TU_USUARIO" target="_blank" rel="noopener noreferrer" aria-label="GitHub" title="GitHub">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.09.68-.22.68-.49v-1.7c-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.28 2.75 1.05a9.36 9.36 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9v2.82c0 .27.18.59.69.49A10.25 10.25 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>
+        </a>
+      </div>
+      <div className="footer-copy">© 2026 MartoTech. Todos los derechos reservados.</div>
+    </div></footer>
+
+    {authOpen && (
+      <div className="modal-backdrop auth-modal" onClick={() => setAuthOpen(false)}>
+        <div className="modal" onClick={event => event.stopPropagation()}>
+          <div className="page-header" style={{ alignItems: "center", marginBottom: 16 }}>
+            <h2 style={{ margin: 0 }}>{authTab === "login" ? "Ingresar" : "Solicitar cuenta"}</h2>
+            <button className="btn btn-secondary btn-sm" type="button" onClick={() => setAuthOpen(false)}>Cerrar</button>
+          </div>
+          <div className="auth-tabs">
+            <button type="button" className={authTab === "login" ? "active" : ""} onClick={() => setAuthTab("login")}>Iniciar sesión</button>
+            <button type="button" className={authTab === "register" ? "active" : ""} onClick={() => setAuthTab("register")}>Solicitar cuenta</button>
+          </div>
+
+          {authTab === "login" ? (
+            <form className="auth-form" onSubmit={submitLogin}>
+              <div className="field"><label className="label">Correo electrónico</label><input className="input" type="email" name="email" autoComplete="email" required /></div>
+              <div className="field"><label className="label">Contraseña</label><input className="input" type="password" name="password" autoComplete="current-password" required /></div>
+              {loginError && <div className="alert alert-error">{loginError}</div>}
+              <button className="btn btn-primary" disabled={loginLoading}>{loginLoading ? "Ingresando…" : "Ingresar"}</button>
+            </form>
+          ) : (
+            <form className="auth-form" onSubmit={submitRegister}>
+              <div className="field"><label className="label">Nombre</label><input className="input" name="nombre" required /></div>
+              <div className="field"><label className="label">Correo</label><input className="input" type="email" name="correo" required /></div>
+              <div className="field"><label className="label">Teléfono</label><input className="input" name="telefono" /></div>
+              <div className="field">
+                <label className="label">Plan que te interesa</label>
+                <select className="select" name="plan" value={selectedPlan} onChange={e => setSelectedPlan(e.target.value)} required>
+                  <option value="">Elegí un plan</option>
+                  {PLANS.map(plan => <option key={plan.key} value={plan.name}>{plan.name}</option>)}
+                </select>
+              </div>
+              <p className="muted" style={{ fontSize: 13, margin: 0 }}>Un administrador creará tu cuenta y recibirás la invitación para configurar tu contraseña.</p>
+              {regError && <div className="alert alert-error">{regError}</div>}
+              {regSent && <div className="alert alert-success">Solicitud enviada. Pronto se pondrán en contacto contigo.</div>}
+              <button className="btn btn-primary" disabled={regSending}>{regSending ? "Enviando…" : "Enviar solicitud"}</button>
+            </form>
+          )}
+        </div>
+      </div>
+    )}
+
     <button type="button" className="public-support-fab" onClick={() => { setSupportOpen(true); setSupportSent(false); setSupportError(""); }} aria-label="Contactar soporte" title="Soporte">
       <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 11a8 8 0 0 1 16 0v2" />

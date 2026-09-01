@@ -7,9 +7,11 @@ from pydantic import BaseModel, EmailStr
 try:
     from .db import db
     from .deps import SITE_URL, current_user, require_superadmin
+    from .mailer import notify_admin_invitation_sent, send_invitation_email
 except ImportError:
     from db import db
     from deps import SITE_URL, current_user, require_superadmin
+    from mailer import notify_admin_invitation_sent, send_invitation_email
 
 router = APIRouter(prefix="/api/usuarios", tags=["usuarios"])
 
@@ -159,6 +161,9 @@ def _generate_invitation(*, nombre: str, apellido: str, correo: str, telefono: s
 
     if request_id is not None:
         db().table("contact_requests").update({"estado": "contactado"}).eq("id", request_id).execute()
+
+    send_invitation_email(correo=correo, nombre=nombre, invite_url=invite_url)
+    notify_admin_invitation_sent(correo=correo, nombre=nombre)
 
     return inserted
 

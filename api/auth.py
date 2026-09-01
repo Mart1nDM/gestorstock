@@ -1,14 +1,18 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, EmailStr
 
 try:
     from .db import db
     from .deps import current_user
+    from .mailer import notify_admin_new_request
+    from .spam_protection import require_turnstile
 except ImportError:
     from db import db
     from deps import current_user
+    from mailer import notify_admin_new_request
+    from spam_protection import require_turnstile
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -19,6 +23,7 @@ class ContactIn(BaseModel):
     telefono: str | None = None
     plan: str | None = None
     mensaje: str
+    cf_turnstile_response: str | None = None
 
 
 @router.get("/me")
@@ -27,9 +32,17 @@ def me(user=Depends(current_user)):
 
 
 @router.post("/contact")
-def contact(payload: ContactIn):
-    data = payload.model_dump()
+def contact(payload: ContactIn, request: Request):
+    require_turnstile(payload.cf_turnstile_response, request.client.host if request.client else None)
+    data = payload.model_dump(exclude={"cf_turnstile_response"})
     result = db().table("contact_requests").insert(data).execute()
+    notify_admin_new_request(
+        nombre=data["nombre"],
+        correo=data["correo"],
+        telefono=data.get("telefono"),
+        plan=data.get("plan"),
+        mensaje=data["mensaje"],
+    )
     return {"ok": True, "id": result.data[0]["id"]}
 
 

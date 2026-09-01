@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import { PLANS } from "../lib/plan-data";
+import TurnstileWidget from "../components/TurnstileWidget";
 
 type AuthTab = "login" | "register";
 
@@ -26,6 +27,9 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
   const [regSent, setRegSent] = useState(false);
   const [regError, setRegError] = useState("");
   const [regSending, setRegSending] = useState(false);
+  const [contactToken, setContactToken] = useState<string | null>(null);
+  const [regToken, setRegToken] = useState<string | null>(null);
+  const [supportToken, setSupportToken] = useState<string | null>(null);
 
   useEffect(() => {
     setSelectedPlan(initialPlan);
@@ -41,6 +45,10 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
 
   async function submitContact(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!contactToken) {
+      setError("Verificá que no sos un robot para continuar.");
+      return;
+    }
     setSending(true);
     setError("");
     setSent(false);
@@ -49,10 +57,11 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
     try {
       await apiFetch("/auth/contact", {
         method: "POST",
-        body: JSON.stringify(Object.fromEntries(form.entries())),
+        body: JSON.stringify({ ...Object.fromEntries(form.entries()), cf_turnstile_response: contactToken }),
       });
       formEl.reset();
       setSelectedPlan(initialPlan);
+      setContactToken(null);
       setSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo enviar la consulta.");
@@ -63,6 +72,10 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
 
   async function submitSupport(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!supportToken) {
+      setSupportError("Verificá que no sos un robot para continuar.");
+      return;
+    }
     setSupportSending(true);
     setSupportError("");
     setSupportSent(false);
@@ -79,9 +92,11 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
           telefono: form.get("telefono"),
           plan: "Soporte",
           mensaje: `Solicitud de contraseña temporal. Medio preferido: ${medio}.\n\n${mensaje}`,
+          cf_turnstile_response: supportToken,
         }),
       });
       formEl.reset();
+      setSupportToken(null);
       setSupportSent(true);
     } catch (err) {
       setSupportError(err instanceof Error ? err.message : "No se pudo enviar el ticket.");
@@ -106,6 +121,10 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
 
   async function submitRegister(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!regToken) {
+      setRegError("Verificá que no sos un robot para continuar.");
+      return;
+    }
     setRegSending(true);
     setRegError("");
     setRegSent(false);
@@ -121,9 +140,11 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
           telefono: form.get("telefono"),
           plan: regPlan,
           mensaje: "Solicitud para crear una cuenta. Quiero comenzar a usar el gestor.",
+          cf_turnstile_response: regToken,
         }),
       });
       formEl.reset();
+      setRegToken(null);
       setRegSent(true);
     } catch (err) {
       setRegError(err instanceof Error ? err.message : "No se pudo enviar la solicitud.");
@@ -197,6 +218,9 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
             </div>
           </div>
           <div className="field" style={{ marginTop: 14 }}><label className="label">Mensaje</label><textarea className="textarea" name="mensaje" required placeholder="Contame qué necesitás para tu negocio…" /></div>
+          <div style={{ margin: "12px 0" }}>
+            <TurnstileWidget onToken={setContactToken} />
+          </div>
           {error && <div className="alert alert-error">{error}</div>}
           {sent && <div className="alert alert-success">Consulta enviada. Pronto un administrador se pondrá en contacto.</div>}
           <button className="btn btn-primary" style={{ width: "100%", marginTop: 14 }} disabled={sending}>{sending ? "Enviando…" : "Enviar consulta"}</button>
@@ -249,6 +273,9 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
                 </select>
               </div>
               <p className="muted" style={{ fontSize: 13, margin: 0 }}>Un administrador creará tu cuenta y recibirás la invitación para configurar tu contraseña.</p>
+              <div style={{ margin: "12px 0" }}>
+                <TurnstileWidget onToken={setRegToken} />
+              </div>
               {regError && <div className="alert alert-error">{regError}</div>}
               {regSent && <div className="alert alert-success">Solicitud enviada. Pronto se pondrán en contacto contigo.</div>}
               <button className="btn btn-primary" disabled={regSending}>{regSending ? "Enviando…" : "Enviar solicitud"}</button>
@@ -284,6 +311,9 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
               <div className="field"><label className="label">Preferís respuesta por</label><select className="select" name="medio_contacto" defaultValue="correo"><option value="correo">Correo</option><option value="telefono">Teléfono</option></select></div>
             </div>
             <div className="field"><label className="label">Mensaje</label><textarea className="textarea" name="mensaje" required placeholder="Indicá que olvidaste tu contraseña y cómo podemos contactarte." /></div>
+            <div style={{ margin: "12px 0" }}>
+              <TurnstileWidget onToken={setSupportToken} />
+            </div>
             {supportError && <div className="alert alert-error">{supportError}</div>}
             {supportSent && <div className="alert alert-success">Ticket enviado. Soporte se pondrá en contacto para darte una contraseña temporal.</div>}
             <button className="btn btn-primary" disabled={supportSending}>{supportSending ? "Enviando…" : "Enviar ticket a soporte"}</button>

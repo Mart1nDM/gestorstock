@@ -111,17 +111,21 @@ export default function SuperAdminPage() {
       const data = await apiFetch<{ invite_url: string }>(`/usuarios/solicitudes/${requestId}/invitar`, {
         method: "POST",
       });
-      try {
-        await navigator.clipboard.writeText(data.invite_url);
-        setToast("Invitación generada y link copiado al portapapeles.");
-      } catch {
-        setToast(`Invitación generada: ${data.invite_url}`);
-      }
+      setToast("Invitación generada y enviada por email al usuario.");
+      copyToClipboard(data.invite_url);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "No se pudo generar la invitación.");
     } finally {
       setBusyRequestId(null);
+    }
+  }
+
+  async function copyToClipboard(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      /* noop */
     }
   }
 

@@ -11,7 +11,7 @@ try:
     from .metas import router as metas_router
     from .db import db
 except ImportError:  # Vercel deploys api/index.py as a top-level module
-    from .auth import router as auth_router
+    from auth import router as auth_router
     from productos import router as productos_router
     from ventas import router as ventas_router
     from usuarios import router as usuarios_router

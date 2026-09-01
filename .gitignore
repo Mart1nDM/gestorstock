@@ -1,13 +1,30 @@
+# === Dependencias / builds ===
 node_modules/
 .next/
+out/
 .vercel/
+dist/
+build/
+
+# === Python ===
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.uvicorn*
+uvicorn
+
+# === Entorno / secretos (NUNCA commitear) ===
 .env
 .env.local
+.env.production
 .env.*.local
-.DS_Store
-*.tsbuildinfo
+.env.*.prod
+!.env.example
 
-.vercel
-.env*
+# === Sistema / editor ===
+.DS_Store
+Thumbs.db
+*.log
+*.tsbuildinfo

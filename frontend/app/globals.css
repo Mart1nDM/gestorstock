@@ -35,6 +35,18 @@ body {
   background: var(--bg-main);
   color: var(--text);
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  position: relative;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--bg-main);
+  background-image: linear-gradient(rgba(15,17,23,.72), rgba(15,17,23,.88)), url("/stock.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 a { color: inherit; text-decoration: none; }
 button, input, select, textarea { font: inherit; }
@@ -99,7 +111,7 @@ button { cursor: pointer; }
 .feature-card { padding: 20px; }
 .feature-card h3 { margin: 8px 0; }
 .feature-card p { color: var(--muted); line-height: 1.6; margin-bottom: 0; }
-.contact { padding: 70px 0; background: #11141c; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.contact { padding: 70px 0; background: rgba(17,20,28,.56); backdrop-filter: blur(8px); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .contact-grid { display: grid; grid-template-columns: .8fr 1.2fr; gap: 30px; }
 .plans-hero { padding: 78px 0 24px; }
 .plans-section { padding: 18px 0 28px; }
@@ -113,15 +125,21 @@ button { cursor: pointer; }
 .plan-price { font-size: 32px; font-weight: 900; letter-spacing: -.04em; white-space: nowrap; }
 .plan-limit { padding: 10px 12px; background: rgba(255,255,255,.03); border: 1px solid var(--border); border-radius: 10px; font-weight: 700; color: #dfe6fa; }
 .plan-list { margin: 0; padding-left: 18px; display: grid; gap: 10px; color: #cfd7ec; line-height: 1.5; }
+.plan-detail { display: grid; gap: 8px; padding: 12px; background: rgba(255,255,255,.03); border: 1px solid var(--border); border-radius: 10px; }
+.plan-detail-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.plan-detail-row span { color: var(--muted); }
+.plan-detail-row strong { color: #dfe6fa; text-align: right; }
+.plan-block-title { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #bcd2ff; font-weight: 800; margin-bottom: 10px; }
+.plan-block { margin-top: 16px; }
 .plan-footer { margin-top: auto; display: flex; }
-.plans-compare-band { background: #11141c; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.plans-compare-band { background: rgba(17,20,28,.56); backdrop-filter: blur(8px); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .plans-table-wrap { overflow: auto; }
 .plans-table { min-width: 860px; }
 .plans-table td:first-child { color: #bcd2ff; font-weight: 800; }
 .plans-table tbody td { white-space: normal; }
 
 
-.app-shell { min-height: 100vh; display: grid; grid-template-columns: 238px 1fr; }
+.app-shell { min-height: 100vh; display: grid; grid-template-columns: 238px 1fr; background: var(--bg-main); }
 .sidebar { background: var(--bg-sidebar); border-right: 1px solid var(--border); padding: 18px 12px; position: sticky; top: 0; height: 100vh; }
 .sidebar .brand { padding: 8px 10px 20px; display: block; }
 .nav { display: grid; gap: 6px; }
@@ -167,6 +185,16 @@ tr:hover td { background: rgba(255,255,255,.02); }
 .plan-select { min-width: 120px; padding: 7px 9px; font-size: 13px; }
 .best-seller { display: grid; grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr); align-items: center; gap: 12px; }
 .best-seller strong { min-width: 0; overflow-wrap: anywhere; }
+.metrics-section { margin-top: 22px; }
+.metrics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.chart-card { padding: 18px; }
+.chart-card h3 { margin: 0 0 14px; color: #bcd2ff; font-size: 15px; }
+.chart-card-span-2 { grid-column: span 2; }
+.goal-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.goal-summary > div { display: grid; gap: 4px; padding: 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 10px; }
+.goal-summary strong { font-size: 20px; }
+.progress-track { height: 12px; border-radius: 999px; background: var(--bg-input); border: 1px solid var(--border); overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 999px; transition: width .5s ease; }
 .empty { padding: 28px; text-align:center; color: var(--muted); }
 .alert { padding: 10px 12px; border-radius: 9px; margin: 12px 0; }
 .alert-error { background: #3a1720; color: #fecaca; border: 1px solid #6b1b2b; }
@@ -188,6 +216,9 @@ tr:hover td { background: rgba(255,255,255,.02); }
   .content { padding: 14px; }
   .page-pad { padding: 18px; }
   .grid-4, .grid-2, .form-grid, .preview-row { grid-template-columns: 1fr; }
+  .metrics-grid { grid-template-columns: 1fr; }
+  .chart-card-span-2 { grid-column: auto; }
+  .goal-summary { grid-template-columns: 1fr; }
   .app-shell { grid-template-columns: 1fr; }
   .sidebar { display: none; }
   .app-topbar { padding: 0 14px; }
@@ -312,3 +343,30 @@ tr:hover td { background: rgba(255,255,255,.02); }
 @media (max-width: 720px) {
   .public-support-fab { right: 14px; bottom: 14px; width: 52px; height: 52px; }
 }
+
+.footer {
+  padding: 34px 0;
+  border-top: 1px solid var(--border);
+  background: rgba(15,17,23,.72);
+  backdrop-filter: blur(8px);
+  margin-top: 60px;
+}
+.footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.footer-brand { font-weight: 800; letter-spacing: -.03em; }
+.footer-brand span { color: var(--accent); }
+.footer-social { display: flex; gap: 12px; align-items: center; }
+.footer-social a {
+  width: 42px; height: 42px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border); border-radius: 999px;
+  color: var(--muted);
+  transition: .18s ease;
+}
+.footer-social a:hover { color: var(--accent); border-color: var(--accent); transform: translateY(-2px); }
+.footer-copy { color: var(--muted); font-size: 13px; }
+
+.auth-modal .modal { width: min(460px, 100%); }
+.auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 10px; padding: 5px; margin-bottom: 18px; }
+.auth-tabs button { border: 0; background: transparent; color: var(--muted); padding: 9px 10px; border-radius: 8px; font-weight: 800; }
+.auth-tabs button.active { background: var(--accent); color: white; }
+.auth-form { display: grid; gap: 14px; }

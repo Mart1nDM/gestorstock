@@ -1,26 +1,35 @@
+"use client";
+
 import Link from "next/link";
-
-import { PLANS } from "../../lib/plan-data";
-
-const rows = [
-  { label: "Productos", values: ["Hasta 10", "Hasta 100", "Ilimitados"] },
-  { label: "Precio", values: ["$0/mes", "$5,99/mes", "$10,99/mes"] },
-  { label: "Métricas", values: ["Básicas", "Más métricas y gráficos", "Métricas y análisis avanzados"] },
-  { label: "Gráficos", values: ["No", "Sí", "Sí, con análisis"] },
-  { label: "Reportes de ventas", values: ["No", "No", "Sí"] },
-  { label: "Soporte personalizado", values: ["No", "No", "Sí"] },
-];
+import { useEffect, useState } from "react";
+import { apiFetch } from "../../lib/api";
+import type { PlanInfo } from "../../types";
+import { PLAN_CATALOG } from "../../lib/plan-catalog";
 
 function chooseHref(planKey: string) {
   return `/?plan=${planKey}#contacto`;
 }
 
+function formatLimite(value: number | null): string {
+  if (value === null) return "Ilimitados";
+  if (value === 1) return "1 cuenta";
+  return `Hasta ${value}`;
+}
+
 export default function PlansPage() {
+  const [planes, setPlanes] = useState<PlanInfo[]>(PLAN_CATALOG);
+
+  useEffect(() => {
+    apiFetch<{ planes: PlanInfo[] }>("/planes")
+      .then((data) => { if (data.planes?.length) setPlanes(data.planes); })
+      .catch(() => { /* si la API no responde, mostramos el catálogo local */ });
+  }, []);
+
   return (
     <main>
       <header className="topbar">
         <div className="container topbar-inner">
-          <Link href="/" className="brand"><span>●</span> MartoTech</Link>
+          <Link href="/" className="brand"><img src="/logo.png" alt="MartoTech" style={{ width: 34, height: 34, objectFit: "contain", borderRadius: 8, verticalAlign: "middle", marginRight: 10 }} /> GESTOR ONLINE</Link>
           <nav style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Link className="btn btn-ghost" href="/">Inicio</Link>
             <Link className="btn btn-primary" href="/#contacto">Solicitar una cuenta</Link>
@@ -41,29 +50,54 @@ export default function PlansPage() {
       <section className="plans-section">
         <div className="container">
           <div className="plans-grid">
-            {PLANS.map((plan, index) => (
-              <article
-                key={plan.key}
-                className={`card plan-card ${index === 1 ? "featured" : ""}`}
-                style={{ borderTopColor: plan.accent }}
-              >
-                {index === 1 && <div className="plan-tag">Más elegido</div>}
-                <div className="plan-head">
-                  <div>
-                    <h2>{plan.name}</h2>
-                    <p className="muted">{plan.subtitle}</p>
+            {planes.map((plan) => (
+                <article
+                  key={plan.key}
+                  className={`card plan-card ${plan.destacado ? "featured" : ""}`}
+                  style={{ borderTopColor: plan.accent }}
+                >
+                  {plan.destacado && <div className="plan-tag">Más elegido</div>}
+                  <div className="plan-head">
+                    <div>
+                      <h2>{plan.nombre}</h2>
+                      <p className="muted">{plan.subtitle}</p>
+                    </div>
+                    <div className="plan-price" style={{ color: plan.accent }}>{plan.precio}</div>
                   </div>
-                  <div className="plan-price" style={{ color: plan.accent }}>{plan.price}</div>
-                </div>
-                <div className="plan-limit">{plan.products}</div>
-                <ul className="plan-list">
-                  {plan.highlights.map(item => <li key={item}>✓ {item}</li>)}
-                </ul>
-                <div className="plan-footer">
-                  <Link className="btn btn-primary" href={chooseHref(plan.key)}>Elegir plan</Link>
-                </div>
-              </article>
-            ))}
+                  <div className="plan-limit">{plan.products}</div>
+
+                  <div className="plan-detail">
+                    <div className="plan-detail-row"><span>Productos</span><strong>{formatLimite(plan.limites.productos)}</strong></div>
+                    <div className="plan-detail-row"><span>Usuarios</span><strong>{typeof plan.limites.usuarios === "number" ? formatLimite(plan.limites.usuarios) : plan.limites.usuarios}</strong></div>
+                    <div className="plan-detail-row"><span>Historial de ventas</span><strong>{plan.limites.historial_ventas}</strong></div>
+                    <div className="plan-detail-row"><span>Metas de ventas</span><strong>{plan.metas_ventas ? "Sí" : "No"}</strong></div>
+                  </div>
+
+                  <div className="plan-block">
+                    <div className="plan-block-title">🛟 Soporte</div>
+                    <div className="plan-detail-row"><span>Nivel</span><strong>{plan.soporte.nivel}</strong></div>
+                    <div className="plan-detail-row"><span>Prioridad</span><strong>{plan.soporte.prioridad}</strong></div>
+                    <div className="plan-detail-row"><span>Respuesta</span><strong>{plan.soporte.tiempo}</strong></div>
+                    <div className="plan-detail-row"><span>Canales</span><strong>{plan.soporte.canal.join(" · ")}</strong></div>
+                    <div className="plan-detail-row"><span>Atención</span><strong>{plan.soporte.personalizado ? "Personalizada" : "Estandarizada"}</strong></div>
+                  </div>
+
+                  <div className="plan-block">
+                    <div className="plan-block-title">📊 Métricas y gráficas</div>
+                    <ul className="plan-list">
+                      {plan.graficas.map(item => <li key={item}>✓ {item}</li>)}
+                    </ul>
+                    <div className="plan-block-title" style={{ marginTop: 10 }}>📑 Reportes</div>
+                    <ul className="plan-list">
+                      {plan.reportes.map(item => <li key={item}>✓ {item}</li>)}
+                    </ul>
+                  </div>
+
+                  <div className="plan-footer">
+                    <Link className="btn btn-primary" href={chooseHref(plan.key)}>Elegir plan</Link>
+                  </div>
+                </article>
+              ))}
           </div>
         </div>
       </section>
@@ -81,16 +115,18 @@ export default function PlansPage() {
               <thead>
                 <tr>
                   <th>Característica</th>
-                  {PLANS.map(plan => <th key={plan.key}>{plan.name}</th>)}
+                  {planes.map(plan => <th key={plan.key}>{plan.nombre}</th>)}
                 </tr>
               </thead>
               <tbody>
-                {rows.map(row => (
-                  <tr key={row.label}>
-                    <td>{row.label}</td>
-                    {row.values.map((value, valueIndex) => <td key={`${row.label}-${valueIndex}`}>{value}</td>)}
-                  </tr>
-                ))}
+                <tr><td>Precio</td>{planes.map(p => <td key={p.key}>{p.precio}</td>)}</tr>
+                <tr><td>Productos</td>{planes.map(p => <td key={p.key}>{formatLimite(p.limites.productos)}</td>)}</tr>
+                <tr><td>Usuarios</td>{planes.map(p => <td key={p.key}>{typeof p.limites.usuarios === "number" ? formatLimite(p.limites.usuarios) : p.limites.usuarios}</td>)}</tr>
+                <tr><td>Historial de ventas</td>{planes.map(p => <td key={p.key}>{p.limites.historial_ventas}</td>)}</tr>
+                <tr><td>Metas de ventas</td>{planes.map(p => <td key={p.key}>{p.metas_ventas ? "Sí" : "No"}</td>)}</tr>
+                <tr><td>Gráficas</td>{planes.map(p => <td key={p.key}>{p.graficas.join(", ")}</td>)}</tr>
+                <tr><td>Reportes</td>{planes.map(p => <td key={p.key}>{p.reportes.join(", ")}</td>)}</tr>
+                <tr><td>Nivel de soporte</td>{planes.map(p => <td key={p.key}>{p.soporte.nivel} ({p.soporte.prioridad})</td>)}</tr>
               </tbody>
             </table>
           </div>
@@ -105,9 +141,9 @@ export default function PlansPage() {
               <p className="muted" style={{ marginBottom: 0 }}>Al tocar elegir plan, te llevo al formulario con ese plan ya cargado.</p>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {PLANS.map(plan => (
+              {planes.map(plan => (
                 <Link key={plan.key} className="btn btn-secondary" href={chooseHref(plan.key)}>
-                  Elegir {plan.name}
+                  Elegir {plan.nombre}
                 </Link>
               ))}
             </div>

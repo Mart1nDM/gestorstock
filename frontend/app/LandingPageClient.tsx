@@ -45,38 +45,35 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
     setAuthOpen(true);
   }
 
+  function openConfirm(type: "contact" | "register" | "support", payload: Record<string, unknown>, formEl: HTMLFormElement) {
+    setPendingPayload(payload);
+    setPendingFormEl(formEl);
+    setConfirmType(type);
+    setConfirmOpen(true);
+  }
+
   async function submitContact(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
     setSent(false);
-    const formEl = e.currentTarget;
-    const form = new FormData(formEl);
-    const payload: Record<string, unknown> = { ...Object.fromEntries(form.entries()) };
-    setPendingPayload(payload);
-    setPendingFormEl(formEl);
-    setConfirmType("contact");
-    setConfirmOpen(true);
+    const form = new FormData(e.currentTarget);
+    openConfirm("contact", { ...Object.fromEntries(form.entries()) }, e.currentTarget);
   }
 
   async function submitSupport(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSupportError("");
     setSupportSent(false);
-    const formEl = e.currentTarget;
-    const form = new FormData(formEl);
+    const form = new FormData(e.currentTarget);
     const medio = String(form.get("medio_contacto") || "correo");
     const mensaje = String(form.get("mensaje") || "").trim();
-    const payload: Record<string, unknown> = {
+    openConfirm("support", {
       nombre: form.get("nombre"),
       correo: form.get("correo"),
       telefono: form.get("telefono"),
       plan: "Soporte",
       mensaje: `Solicitud de contraseña temporal. Medio preferido: ${medio}.\n\n${mensaje}`,
-    };
-    setPendingPayload(payload);
-    setPendingFormEl(formEl);
-    setConfirmType("support");
-    setConfirmOpen(true);
+    }, e.currentTarget);
   }
 
   async function submitLogin(e: FormEvent<HTMLFormElement>) {
@@ -97,20 +94,15 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
     e.preventDefault();
     setRegError("");
     setRegSent(false);
-    const formEl = e.currentTarget;
-    const form = new FormData(formEl);
+    const form = new FormData(e.currentTarget);
     const regPlan = String(form.get("plan") || selectedPlan);
-    const payload: Record<string, unknown> = {
+    openConfirm("register", {
       nombre: form.get("nombre"),
       correo: form.get("correo"),
       telefono: form.get("telefono"),
       plan: regPlan,
       mensaje: "Solicitud para crear una cuenta. Quiero comenzar a usar el gestor.",
-    };
-    setPendingPayload(payload);
-    setPendingFormEl(formEl);
-    setConfirmType("register");
-    setConfirmOpen(true);
+    }, e.currentTarget);
   }
 
   function openSupport() {
@@ -130,7 +122,6 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
       });
       setConfirmOpen(false);
       setPendingPayload(null);
-      setPendingFormEl(null);
       if (confirmType === "contact") {
         pendingFormEl?.reset();
         setSelectedPlan(initialPlan);
@@ -313,6 +304,7 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
 
     {confirmOpen && pendingPayload && (
       <ConfirmSendModal
+        key={`${confirmType}-${Date.now()}`}
         onConfirm={handleConfirmSend}
         onCancel={() => { setConfirmOpen(false); setPendingPayload(null); setPendingFormEl(null); }}
       />

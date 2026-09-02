@@ -476,6 +476,12 @@ tr:hover td { background: var(--row-hover); }
 .auth-tabs button.active { background: var(--accent); color: white; }
 .auth-form { display: grid; gap: 14px; }
 .turnstile-wrap { min-height: 65px; }
+.confirm-send-modal { width: min(420px, 100%); }
+.confirm-send-body { display: grid; gap: 14px; }
+.confirm-send-instructions { color: var(--muted); font-size: 14px; line-height: 1.6; }
+.confirm-send-turnstile { display: flex; justify-content: center; }
+.confirm-send-success { color: var(--success); font-weight: 700; font-size: 14px; }
+.confirm-send-failed { display: flex; align-items: center; gap: 10px; color: var(--danger); font-size: 14px; }
 
 @media (max-width: 720px) {
   .auth-modal .modal { width: min(100%, 460px); max-height: 95vh; margin: auto 10px; }

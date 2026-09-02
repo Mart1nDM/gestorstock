@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
 import { PLANS } from "../lib/plan-data";
-import TurnstileWidget, { type TurnstileWidgetHandle } from "../components/TurnstileWidget";
+import ConfirmSendModal from "../components/ConfirmSendModal";
 
 type AuthTab = "login" | "register";
 
@@ -27,9 +27,10 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
   const [regSent, setRegSent] = useState(false);
   const [regError, setRegError] = useState("");
   const [regSending, setRegSending] = useState(false);
-  const contactWidgetRef = useRef<TurnstileWidgetHandle>(null);
-  const regWidgetRef = useRef<TurnstileWidgetHandle>(null);
-  const supportWidgetRef = useRef<TurnstileWidgetHandle>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmType, setConfirmType] = useState<"contact" | "register" | "support">("contact");
+  const [pendingPayload, setPendingPayload] = useState<Record<string, unknown> | null>(null);
+  const [pendingFormEl, setPendingFormEl] = useState<HTMLFormElement | null>(null);
 
   useEffect(() => {
     setSelectedPlan(initialPlan);
@@ -44,72 +45,38 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
     setAuthOpen(true);
   }
 
-  async function getToken(ref: React.RefObject<TurnstileWidgetHandle | null>): Promise<string> {
-    return (await ref.current?.solve()) ?? "";
-  }
-
   async function submitContact(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setSending(true);
     setError("");
     setSent(false);
     const formEl = e.currentTarget;
     const form = new FormData(formEl);
-    const token = await getToken(contactWidgetRef);
-    if (!token) {
-      setError("Verificá que no sos un robot para continuar.");
-      setSending(false);
-      return;
-    }
-    try {
-      await apiFetch("/auth/contact", {
-        method: "POST",
-        body: JSON.stringify({ ...Object.fromEntries(form.entries()), cf_turnstile_response: token }),
-      });
-      formEl.reset();
-      setSelectedPlan(initialPlan);
-      setSent(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo enviar la consulta.");
-    } finally {
-      setSending(false);
-    }
+    const payload: Record<string, unknown> = { ...Object.fromEntries(form.entries()) };
+    setPendingPayload(payload);
+    setPendingFormEl(formEl);
+    setConfirmType("contact");
+    setConfirmOpen(true);
   }
 
   async function submitSupport(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setSupportSending(true);
     setSupportError("");
     setSupportSent(false);
     const formEl = e.currentTarget;
     const form = new FormData(formEl);
-    const token = await getToken(supportWidgetRef);
-    if (!token) {
-      setSupportError("Verificá que no sos un robot para continuar.");
-      setSupportSending(false);
-      return;
-    }
     const medio = String(form.get("medio_contacto") || "correo");
     const mensaje = String(form.get("mensaje") || "").trim();
-    try {
-      await apiFetch("/auth/contact", {
-        method: "POST",
-        body: JSON.stringify({
-          nombre: form.get("nombre"),
-          correo: form.get("correo"),
-          telefono: form.get("telefono"),
-          plan: "Soporte",
-          mensaje: `Solicitud de contraseña temporal. Medio preferido: ${medio}.\n\n${mensaje}`,
-          cf_turnstile_response: token,
-        }),
-      });
-      formEl.reset();
-      setSupportSent(true);
-    } catch (err) {
-      setSupportError(err instanceof Error ? err.message : "No se pudo enviar el ticket.");
-    } finally {
-      setSupportSending(false);
-    }
+    const payload: Record<string, unknown> = {
+      nombre: form.get("nombre"),
+      correo: form.get("correo"),
+      telefono: form.get("telefono"),
+      plan: "Soporte",
+      mensaje: `Solicitud de contraseña temporal. Medio preferido: ${medio}.\n\n${mensaje}`,
+    };
+    setPendingPayload(payload);
+    setPendingFormEl(formEl);
+    setConfirmType("support");
+    setConfirmOpen(true);
   }
 
   async function submitLogin(e: FormEvent<HTMLFormElement>) {
@@ -128,37 +95,22 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
 
   async function submitRegister(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setRegSending(true);
     setRegError("");
     setRegSent(false);
     const formEl = e.currentTarget;
     const form = new FormData(formEl);
-    const token = await getToken(regWidgetRef);
-    if (!token) {
-      setRegError("Verificá que no sos un robot para continuar.");
-      setRegSending(false);
-      return;
-    }
     const regPlan = String(form.get("plan") || selectedPlan);
-    try {
-      await apiFetch("/auth/contact", {
-        method: "POST",
-        body: JSON.stringify({
-          nombre: form.get("nombre"),
-          correo: form.get("correo"),
-          telefono: form.get("telefono"),
-          plan: regPlan,
-          mensaje: "Solicitud para crear una cuenta. Quiero comenzar a usar el gestor.",
-          cf_turnstile_response: token,
-        }),
-      });
-      formEl.reset();
-      setRegSent(true);
-    } catch (err) {
-      setRegError(err instanceof Error ? err.message : "No se pudo enviar la solicitud.");
-    } finally {
-      setRegSending(false);
-    }
+    const payload: Record<string, unknown> = {
+      nombre: form.get("nombre"),
+      correo: form.get("correo"),
+      telefono: form.get("telefono"),
+      plan: regPlan,
+      mensaje: "Solicitud para crear una cuenta. Quiero comenzar a usar el gestor.",
+    };
+    setPendingPayload(payload);
+    setPendingFormEl(formEl);
+    setConfirmType("register");
+    setConfirmOpen(true);
   }
 
   function openSupport() {
@@ -166,6 +118,37 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
     setSupportSent(false);
     setSupportError("");
     setSupportSending(false);
+  }
+
+  async function handleConfirmSend(token: string) {
+    if (!pendingPayload) return;
+    const payload = { ...pendingPayload, cf_turnstile_response: token };
+    try {
+      await apiFetch("/auth/contact", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      setConfirmOpen(false);
+      setPendingPayload(null);
+      setPendingFormEl(null);
+      if (confirmType === "contact") {
+        pendingFormEl?.reset();
+        setSelectedPlan(initialPlan);
+        setSent(true);
+      } else if (confirmType === "register") {
+        pendingFormEl?.reset();
+        setRegSent(true);
+      } else {
+        pendingFormEl?.reset();
+        setSupportSent(true);
+      }
+    } catch (err) {
+      setConfirmOpen(false);
+      const msg = err instanceof Error ? err.message : "No se pudo enviar la solicitud.";
+      if (confirmType === "contact") setError(msg);
+      else if (confirmType === "register") setRegError(msg);
+      else setSupportError(msg);
+    }
   }
 
   return <>
@@ -233,9 +216,6 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
             </div>
           </div>
           <div className="field" style={{ marginTop: 14 }}><label className="label">Mensaje</label><textarea className="textarea" name="mensaje" required placeholder="Contame qué necesitás para tu negocio…" /></div>
-          <div style={{ margin: "12px 0" }}>
-            <TurnstileWidget ref={contactWidgetRef} />
-          </div>
           {error && <div className="alert alert-error">{error}</div>}
           {sent && <div className="alert alert-success">Consulta enviada. Pronto un administrador se pondrá en contacto.</div>}
           <button className="btn btn-primary" style={{ width: "100%", marginTop: 14 }} disabled={sending}>{sending ? "Enviando…" : "Enviar consulta"}</button>
@@ -288,9 +268,6 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
                 </select>
               </div>
               <p className="muted" style={{ fontSize: 13, margin: 0 }}>Un administrador creará tu cuenta y recibirás la invitación para configurar tu contraseña.</p>
-              <div style={{ margin: "12px 0" }}>
-                <TurnstileWidget ref={regWidgetRef} />
-              </div>
               {regError && <div className="alert alert-error">{regError}</div>}
               {regSent && <div className="alert alert-success">Solicitud enviada. Pronto se pondrán en contacto contigo.</div>}
               <button className="btn btn-primary" disabled={regSending}>{regSending ? "Enviando…" : "Enviar solicitud"}</button>
@@ -326,15 +303,19 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
               <div className="field"><label className="label">Preferís respuesta por</label><select className="select" name="medio_contacto" defaultValue="correo"><option value="correo">Correo</option><option value="telefono">Teléfono</option></select></div>
             </div>
             <div className="field"><label className="label">Mensaje</label><textarea className="textarea" name="mensaje" required placeholder="Indicá que olvidaste tu contraseña y cómo podemos contactarte." /></div>
-            <div style={{ margin: "12px 0" }}>
-              <TurnstileWidget ref={supportWidgetRef} />
-            </div>
             {supportError && <div className="alert alert-error">{supportError}</div>}
             {supportSent && <div className="alert alert-success">Ticket enviado. Soporte se pondrá en contacto para darte una contraseña temporal.</div>}
             <button className="btn btn-primary" disabled={supportSending}>{supportSending ? "Enviando…" : "Enviar ticket a soporte"}</button>
           </form>
         </div>
       </div>
+    )}
+
+    {confirmOpen && pendingPayload && (
+      <ConfirmSendModal
+        onConfirm={handleConfirmSend}
+        onCancel={() => { setConfirmOpen(false); setPendingPayload(null); setPendingFormEl(null); }}
+      />
     )}
   </>;
 }

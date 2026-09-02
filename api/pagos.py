@@ -229,20 +229,22 @@ def _procesar_pago(mp_payment_id, *, plan_key_hint: str | None = None) -> bool:
     if not plan_key:
         return False
 
-    correo = _normalizar_correo(data.get("payer", {}).get("email") or "")
-
     preferencia_id = None
     if reference:
         marker = f"gestor-{plan_key}-"
         if marker in reference:
             preferencia_id = reference.replace(marker, "")
 
-    row = _encontrar_fila(plan_key, correo or None, preferencia_id)
+    row = _encontrar_fila(plan_key, None, preferencia_id)
+    if not row:
+        payer_correo = _normalizar_correo(data.get("payer", {}).get("email") or "")
+        row = _encontrar_fila(plan_key, payer_correo or None, None)
     if not row:
         return False
 
+    correo = _normalizar_correo(row.get("correo") or "")
     if not correo:
-        correo = row.get("correo")
+        return False
 
     if status == "approved":
         existing = db().table("pagos").select("profile_id").eq("id", row["id"]).limit(1).execute().data or []

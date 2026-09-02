@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
 import { supabase } from "../lib/supabase";
-import { PLANS } from "../lib/plan-data";
 import ConfirmSendModal from "../components/ConfirmSendModal";
 
 type AuthTab = "login" | "register";
@@ -57,7 +56,15 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
     setError("");
     setSent(false);
     const form = new FormData(e.currentTarget);
-    openConfirm("contact", { ...Object.fromEntries(form.entries()) }, e.currentTarget);
+    const nombre = String(form.get("nombre") || "").trim();
+    const apellido = String(form.get("apellido") || "").trim();
+    openConfirm("contact", {
+      nombre: apellido ? `${nombre} ${apellido}` : nombre,
+      correo: form.get("correo"),
+      telefono: form.get("telefono"),
+      plan: "Gratis",
+      mensaje: "Quiero probar el sistema con una cuenta gratuita.",
+    }, e.currentTarget);
   }
 
   async function submitSupport(e: FormEvent<HTMLFormElement>) {
@@ -95,13 +102,14 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
     setRegError("");
     setRegSent(false);
     const form = new FormData(e.currentTarget);
-    const regPlan = String(form.get("plan") || selectedPlan);
+    const nombre = String(form.get("nombre") || "").trim();
+    const apellido = String(form.get("apellido") || "").trim();
     openConfirm("register", {
-      nombre: form.get("nombre"),
+      nombre: apellido ? `${nombre} ${apellido}` : nombre,
       correo: form.get("correo"),
       telefono: form.get("telefono"),
-      plan: regPlan,
-      mensaje: "Solicitud para crear una cuenta. Quiero comenzar a usar el gestor.",
+      plan: "Gratis",
+      mensaje: "Solicitud para crear una cuenta gratuita de prueba. Quiero comenzar a usar el gestor.",
     }, e.currentTarget);
   }
 
@@ -192,24 +200,17 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
       </div></section>
 
       <section id="contacto" className="contact"><div id="solicitar" className="container contact-grid">
-        <div><div className="badge">✉️ Solicitud de cuenta</div><h2 style={{ fontSize: 38, margin: "18px 0 10px" }}>¿Querés usar el sistema?</h2><p className="muted" style={{ lineHeight: 1.7 }}>Mandame tus datos y contame qué plan te interesa. Desde el panel de administración puedo crear tu cuenta y enviarte la invitación para que configures tu propia contraseña.</p></div>
+        <div><div className="badge">🚀 Probá el sistema gratis</div><h2 style={{ fontSize: 38, margin: "18px 0 10px" }}>¿Querés probar el sistema?</h2><p className="muted" style={{ lineHeight: 1.7 }}>Dejame tus datos y te creo una cuenta gratuita de prueba. Desde el panel de administración activo tu acceso y te envío la invitación para que configures tu propia contraseña.</p></div>
         <form className="card page-pad" onSubmit={submitContact}>
           <div className="form-grid">
             <div className="field"><label className="label">Nombre</label><input className="input" name="nombre" required /></div>
+            <div className="field"><label className="label">Apellido</label><input className="input" name="apellido" /></div>
             <div className="field"><label className="label">Correo</label><input className="input" type="email" name="correo" required /></div>
             <div className="field"><label className="label">Teléfono</label><input className="input" name="telefono" /></div>
-            <div className="field">
-              <label className="label">Plan que te interesa</label>
-              <select className="select" name="plan" value={selectedPlan} onChange={e => setSelectedPlan(e.target.value)} required>
-                <option value="">Elegí un plan</option>
-                {PLANS.map(plan => <option key={plan.key} value={plan.name}>{plan.name}</option>)}
-              </select>
-            </div>
           </div>
-          <div className="field" style={{ marginTop: 14 }}><label className="label">Mensaje</label><textarea className="textarea" name="mensaje" required placeholder="Contame qué necesitás para tu negocio…" /></div>
           {error && <div className="alert alert-error">{error}</div>}
-          {sent && <div className="alert alert-success">Consulta enviada. Pronto un administrador se pondrá en contacto.</div>}
-          <button className="btn btn-primary" style={{ width: "100%", marginTop: 14 }} disabled={sending}>{sending ? "Enviando…" : "Enviar consulta"}</button>
+          {sent && <div className="alert alert-success">Solicitud enviada. Te contacto para crear tu cuenta gratuita.</div>}
+          <button className="btn btn-primary" style={{ width: "100%", marginTop: 14 }} disabled={sending}>{sending ? "Enviando…" : "Pedir mi cuenta gratuita"}</button>
         </form>
       </div></section>
     </main>
@@ -249,16 +250,10 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
           ) : (
             <form className="auth-form" onSubmit={submitRegister}>
               <div className="field"><label className="label">Nombre</label><input className="input" name="nombre" required /></div>
+              <div className="field"><label className="label">Apellido</label><input className="input" name="apellido" /></div>
               <div className="field"><label className="label">Correo</label><input className="input" type="email" name="correo" required /></div>
               <div className="field"><label className="label">Teléfono</label><input className="input" name="telefono" /></div>
-              <div className="field">
-                <label className="label">Plan que te interesa</label>
-                <select className="select" name="plan" value={selectedPlan} onChange={e => setSelectedPlan(e.target.value)} required>
-                  <option value="">Elegí un plan</option>
-                  {PLANS.map(plan => <option key={plan.key} value={plan.name}>{plan.name}</option>)}
-                </select>
-              </div>
-              <p className="muted" style={{ fontSize: 13, margin: 0 }}>Un administrador creará tu cuenta y recibirás la invitación para configurar tu contraseña.</p>
+              <p className="muted" style={{ fontSize: 13, margin: 0 }}>Pedís una cuenta gratuita de prueba. Un administrador la activa y recibís la invitación para configurar tu contraseña.</p>
               {regError && <div className="alert alert-error">{regError}</div>}
               {regSent && <div className="alert alert-success">Solicitud enviada. Pronto se pondrán en contacto contigo.</div>}
               <button className="btn btn-primary" disabled={regSending}>{regSending ? "Enviando…" : "Enviar solicitud"}</button>

@@ -215,7 +215,6 @@ def _marcar_estado(pago_row_id: int, estado: str, mp_payment_id: int | None = No
 
 def _procesar_pago(mp_payment_id, *, plan_key_hint: str | None = None) -> bool:
     data = _consultar_pago(mp_payment_id)
-    print(f"[procesar_pago] pid={mp_payment_id} consultar={bool(data)}")
     if not data:
         return False
 
@@ -228,7 +227,6 @@ def _procesar_pago(mp_payment_id, *, plan_key_hint: str | None = None) -> bool:
             plan_key = "premium"
         elif "pro" in reference:
             plan_key = "pro"
-    print(f"[procesar_pago] status={status} plan_key={plan_key} ref={reference}")
     if not plan_key:
         return False
 
@@ -242,29 +240,21 @@ def _procesar_pago(mp_payment_id, *, plan_key_hint: str | None = None) -> bool:
     if not row:
         payer_correo = _normalizar_correo(data.get("payer", {}).get("email") or "")
         row = _encontrar_fila(plan_key, payer_correo or None, None)
-    print(f"[procesar_pago] fila={bool(row)} preferencia_id={preferencia_id}")
     if not row:
         return False
 
     correo = _normalizar_correo(row.get("correo") or "")
-    print(f"[procesar_pago] correo={correo}")
     if not correo:
         return False
 
     if status == "approved":
         existing = db().table("pagos").select("profile_id").eq("id", row["id"]).limit(1).execute().data or []
         if existing and existing[0].get("profile_id"):
-            print(f"[procesar_pago] ya-procesada profile_id={existing[0].get('profile_id')}")
             _marcar_estado(row["id"], "approved", int(mp_payment_id))
             return True
         try:
-            print(f"[procesar_pago] creando cuenta para {correo} ({plan_key})")
             profile_id = _crear_cuenta_pagada(correo, plan_key, row.get("telefono"))
-            print(f"[procesar_pago] cuenta creada profile_id={profile_id}")
-        except Exception as exc:
-            print(f"[procesar_pago] ERROR al crear cuenta: {type(exc).__name__}: {exc}")
-            import traceback
-            traceback.print_exc()
+        except Exception:
             return False
         db().table("pagos").update(
             {

@@ -13,6 +13,11 @@ except ImportError:
     from db import db
     from deps import SITE_URL, load_env_file
 
+try:
+    from .usuarios import _find_auth_user_by_email, _ensure_plan_id
+except ImportError:
+    from usuarios import _find_auth_user_by_email, _ensure_plan_id
+
 load_env_file()
 
 router = APIRouter(prefix="/api/pagos", tags=["pagos"])
@@ -113,8 +118,6 @@ def _normalizar_correo(correo: str) -> str:
 
 
 def _buscar_auth_user_por_email(correo: str) -> str | None:
-    from .usuarios import _find_auth_user_by_email
-
     auth_user = _find_auth_user_by_email(correo)
     if auth_user:
         return str(auth_user.id)
@@ -122,8 +125,6 @@ def _buscar_auth_user_por_email(correo: str) -> str | None:
 
 
 def _crear_cuenta_pagada(correo: str, plan_key: str, telefono: str | None):
-    from .usuarios import _ensure_plan_id
-
     plan_nombre = PLAN_PRICES[plan_key]["nombre"]
     plan_id = _ensure_plan_id(plan_nombre)
 

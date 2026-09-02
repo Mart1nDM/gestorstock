@@ -23,7 +23,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState("");
   const [supportOpen, setSupportOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
@@ -73,8 +73,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, [router]);
 
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
+
   async function logout() {
     await supabase.auth.signOut();
+    window.localStorage.removeItem("gestor-stock-theme");
+    setDarkMode(true);
+    document.documentElement.dataset.theme = "dark";
     router.replace("/");
   }
 
@@ -179,7 +186,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
       <main className="main-area">
         <header className={scrolled ? "app-topbar scrolled" : "app-topbar"}>
-          <div><strong>Gestor de Stock</strong></div>
+          <div className="app-topbar-left">
+            <button type="button" className="hamburger-btn" onClick={() => setDrawerOpen(o => !o)} aria-label={drawerOpen ? "Cerrar menú" : "Abrir menú"} aria-expanded={drawerOpen}>
+              <span className="hamburger-line" /><span className="hamburger-line" /><span className="hamburger-line" />
+            </button>
+            <strong>Gestor de Stock</strong>
+          </div>
           <div className="app-account-info">
             <span className="plan-pill" style={{ borderColor: activePlan?.accent }}>{activePlan?.name || profile.plan_nombre || "Plan a definir"}</span>
             {activePlan && <span className="muted plan-limit-text">{activePlan.products}</span>}
@@ -201,6 +213,33 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <section className="content">{children}</section>
       </main>
 
+      {drawerOpen && <div className="drawer-overlay" onClick={() => setDrawerOpen(false)} />}
+      <aside className={`mobile-drawer ${drawerOpen ? "open" : ""}`} role="menu">
+        <div className="drawer-brand">
+          <img src="/logo.png" alt="MartoTech" width={48} height={48} style={{ objectFit: "contain", borderRadius: 10 }} />
+          <span>Gestor de Stock</span>
+        </div>
+        <nav className="drawer-nav">
+          {links.map(([icon, label, href]) => (
+            <Link key={href} href={href} role="menuitem" className={pathname === href || pathname.startsWith(href.split("?")[0]) ? "active" : ""} onClick={() => setDrawerOpen(false)}>
+              <span>{icon}</span><span>{label}</span>
+            </Link>
+          ))}
+          {profile.rol === "superadmin" && (
+            <Link href="/superadmin" role="menuitem" className={pathname.startsWith("/superadmin") ? "active" : ""} onClick={() => setDrawerOpen(false)}>
+              <span>🛡️</span><span>SuperAdmin</span>
+            </Link>
+          )}
+        </nav>
+        <div className="drawer-footer">
+          <div className="drawer-user">
+            <div className="drawer-user-name">{profile.nombre} {profile.apellido}</div>
+            <div className="muted" style={{ fontSize: 12 }}>{profile.plan_nombre || "Plan pendiente"}</div>
+          </div>
+          <button type="button" role="menuitem" className="drawer-logout" onClick={() => { setDrawerOpen(false); logout(); }}>🚪 Cerrar sesión</button>
+        </div>
+      </aside>
+
       <button
         type="button"
         className="support-fab"
@@ -215,33 +254,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <path d="M12 19h2" />
         </svg>
       </button>
-
-      <button
-        type="button"
-        className="menu-fab"
-        onClick={() => setMenuOpen(open => !open)}
-        aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
-        aria-expanded={menuOpen}
-        title="Menú"
-      >
-        <span aria-hidden="true">☰</span>
-      </button>
-
-      {menuOpen && (
-        <div className="mobile-menu" role="menu">
-          {links.map(([icon, label, href]) => (
-            <Link key={href} href={href} role="menuitem" className={pathname === href || pathname.startsWith(href.split("?")[0]) ? "active" : ""} onClick={() => setMenuOpen(false)}>
-              <span>{icon}</span><span>{label}</span>
-            </Link>
-          ))}
-          {profile.rol === "superadmin" && (
-            <Link href="/superadmin" role="menuitem" className={pathname.startsWith("/superadmin") ? "active" : ""} onClick={() => setMenuOpen(false)}>
-              <span>🛡️</span><span>SuperAdmin</span>
-            </Link>
-          )}
-          <button type="button" role="menuitem" onClick={logout}><span>🚪</span><span>Cerrar sesión</span></button>
-        </div>
-      )}
 
       {supportOpen && (
         <div className="modal-backdrop" onClick={() => setSupportOpen(false)}>

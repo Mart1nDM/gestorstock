@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 const TURNSTILE_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit";
@@ -29,7 +29,20 @@ export default function TurnstileWidget({ onToken }: Props) {
   const widgetIdRef = useRef<string | null>(null);
   const onTokenRef = useRef(onToken);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [expired, setExpired] = useState(false);
   onTokenRef.current = onToken;
+
+  const handleRetry = useCallback(() => {
+    setExpired(false);
+    setLoadFailed(false);
+    if (window.turnstile && widgetIdRef.current) {
+      try {
+        window.turnstile.reset(widgetIdRef.current);
+      } catch {
+        onTokenRef.current(null);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!SITE_KEY) {
@@ -38,19 +51,29 @@ export default function TurnstileWidget({ onToken }: Props) {
     }
 
     let cancelled = false;
-    const container = containerRef.current;
+
     const render = () => {
       if (cancelled || !window.turnstile || !containerRef.current) return;
       if (containerRef.current.childElementCount > 0) return;
+      setExpired(false);
       widgetIdRef.current = window.turnstile.render(containerRef.current, {
         sitekey: SITE_KEY,
         size: "flexible",
-        callback: (token: string) => onTokenRef.current(token),
-        "error-callback": () => onTokenRef.current(null),
+        "retry": "auto",
+        "max-refreshes": 3,
+        callback: (token: string) => {
+          if (!cancelled) {
+            setExpired(false);
+            onTokenRef.current(token);
+          }
+        },
+        "error-callback": () => {
+          if (!cancelled) onTokenRef.current(null);
+        },
         "expired-callback": () => {
-          onTokenRef.current(null);
-          if (window.turnstile && widgetIdRef.current) {
-            window.turnstile.reset(widgetIdRef.current);
+          if (!cancelled) {
+            onTokenRef.current(null);
+            setExpired(true);
           }
         },
       });
@@ -122,9 +145,16 @@ export default function TurnstileWidget({ onToken }: Props) {
     <div className="turnstile-wrap">
       <div ref={containerRef} />
       {loadFailed && (
-        <span className="muted" role="alert">
-          No se pudo cargar la verificación de seguridad. Reintentá en unos segundos.
-        </span>
+        <div className="turnstile-retry">
+          <span className="muted" role="alert">No se pudo cargar la verificación de seguridad.</span>
+          <button type="button" className="btn btn-sm btn-secondary" onClick={handleRetry}>Reintentar</button>
+        </div>
+      )}
+      {expired && (
+        <div className="turnstile-retry">
+          <span className="muted" role="alert">La verificación expiró. Hacé clic para reintentar.</span>
+          <button type="button" className="btn btn-sm btn-secondary" onClick={handleRetry}>Reintentar verificación</button>
+        </div>
       )}
     </div>
   );

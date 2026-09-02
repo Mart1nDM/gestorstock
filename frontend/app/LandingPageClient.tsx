@@ -40,6 +40,8 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
     setLoginError("");
     setRegError("");
     setRegSent(false);
+    setRegSending(false);
+    setRegToken(null);
     setAuthOpen(true);
   }
 
@@ -285,7 +287,7 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
       </div>
     )}
 
-    <button type="button" className="public-support-fab" onClick={() => { setSupportOpen(true); setSupportSent(false); setSupportError(""); }} aria-label="Contactar soporte" title="Soporte">
+    <button type="button" className="public-support-fab" onClick={() => { setSupportOpen(true); setSupportSent(false); setSupportError(""); setSupportSending(false); setSupportToken(null); }} aria-label="Contactar soporte" title="Soporte">
       <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 11a8 8 0 0 1 16 0v2" />
         <path d="M4 13h2a2 2 0 0 1 2 2v2H5a1 1 0 0 1-1-1v-3Z" />

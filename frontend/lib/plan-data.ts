@@ -25,7 +25,7 @@ export const PLANS: PlanInfo[] = [
   {
     key: "premium",
     name: "Premium",
-    price: "$5,99/mes",
+    price: "$5099,99",
     subtitle: "Más capacidad para crecer con datos más claros.",
     products: "Hasta 100 productos",
     accent: "var(--accent)",
@@ -35,7 +35,7 @@ export const PLANS: PlanInfo[] = [
   {
     key: "pro",
     name: "Pro",
-    price: "$10,99/mes",
+    price: "$9999,99",
     subtitle: "Para operación completa, análisis y soporte más cercano.",
     products: "Productos ilimitados",
     accent: "var(--warning)",

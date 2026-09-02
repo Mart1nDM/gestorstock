@@ -21,8 +21,8 @@ MERCADOPAGO_ACCESS_TOKEN = os.environ.get("MERCADOPAGO_ACCESS_TOKEN", "").strip(
 _MERCADOPAGO_API = "https://api.mercadopago.com"
 
 PLAN_PRICES = {
-    "premium": {"nombre": "Premium", "precio": 5.99},
-    "pro": {"nombre": "Pro", "precio": 10.99},
+    "premium": {"nombre": "Premium", "precio": 5099.99},
+    "pro": {"nombre": "Pro", "precio": 9999.99},
 }
 
 _FRONTEND_URL = (SITE_URL or "https://gestorstock-web.vercel.app").rstrip("/")

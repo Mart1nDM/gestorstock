@@ -108,7 +108,7 @@ export default function PlansPage() {
                   <div className="plan-footer">
                     {esPagado(plan.key) ? (
                       <button className="btn btn-primary" type="button" onClick={() => setPaidPlan(plan)}>
-                        Pagar {plan.nombre}
+                        Elegir {plan.nombre}
                       </button>
                     ) : (
                       <Link className="btn btn-primary" href={chooseHref(plan.key)}>
@@ -164,7 +164,7 @@ export default function PlansPage() {
               {planes.map(plan => (
                 esPagado(plan.key) ? (
                   <button key={plan.key} className="btn btn-secondary" type="button" onClick={() => setPaidPlan(plan)}>
-                    Pagar {plan.nombre}
+                    Elegir {plan.nombre}
                   </button>
                 ) : (
                   <Link key={plan.key} className="btn btn-secondary" href={chooseHref(plan.key)}>

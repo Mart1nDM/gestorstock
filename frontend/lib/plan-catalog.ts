@@ -35,11 +35,11 @@ export const PLAN_CATALOG: PlanInfo[] = [
   {
     key: "premium",
     nombre: "Premium",
-    precio: "$5,99/mes",
+    precio: "$5099,99",
     subtitle: "Más capacidad para crecer con datos más claros.",
     products: "Hasta 100 productos",
     limite_productos: 100,
-    precio_mensual: 5.99,
+    precio_mensual: 5099.99,
     accent: "var(--accent)",
     destacado: true,
     soporte: {
@@ -60,18 +60,18 @@ export const PLAN_CATALOG: PlanInfo[] = [
     ],
     limites: {
       productos: 100,
-      usuarios: 3,
+      usuarios: 1,
       historial_ventas: "Histórico completo",
     },
   },
   {
     key: "pro",
     nombre: "Pro",
-    precio: "$10,99/mes",
+    precio: "$9999,99",
     subtitle: "Para operación completa, análisis y soporte más cercano.",
     products: "Productos ilimitados",
     limite_productos: null,
-    precio_mensual: 10.99,
+    precio_mensual: 9999.99,
     accent: "var(--warning)",
     destacado: false,
     soporte: {
@@ -92,7 +92,7 @@ export const PLAN_CATALOG: PlanInfo[] = [
     ],
     limites: {
       productos: null,
-      usuarios: "Ilimitados",
+      usuarios: 1,
       historial_ventas: "Histórico completo",
     },
   },

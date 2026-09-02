@@ -296,33 +296,74 @@ def _procesar_por_correo(correo: str, plan_key: str) -> bool:
         .select("preferencia_id")
         .eq("correo", correo)
         .eq("plan_key", plan_key)
-        .eq("wallet_processed", False)
-        .order("created_at", desc=True)
-        .limit(5)
+        .limit(50)
         .execute()
         .data
         or []
     )
+    if not rows:
+        return False
+    any_ok = False
     for r in rows:
         preferencia_id = r.get("preferencia_id")
         if not preferencia_id:
             continue
         reference = f"gestor-{plan_key}-{preferencia_id}"
+        payment_ids: set = set()
         try:
             with _client() as client:
-                search = client.get("/v1/payments/search", params={"external_reference": reference, "limit": 5})
-                if search.status_code != 200:
-                    continue
-                results = (search.json() or {}).get("results") or []
+                search = client.get("/v1/payments/search", params={"external_reference": reference, "limit": 50})
+                if search.status_code == 200:
+                    results = (search.json() or {}).get("results") or []
+                    for p in results:
+                        pid = p.get("id")
+                        if pid:
+                            payment_ids.add(int(pid))
         except Exception:
             continue
-        for payment in results:
-            mp_id = payment.get("id")
-            if not mp_id:
+        for mp_id in payment_ids:
+            try:
+                if _procesar_pago(mp_id, plan_key_hint=plan_key):
+                    any_ok = True
+            except Exception:
                 continue
-            if _procesar_pago(mp_id, plan_key_hint=plan_key):
+    return any_ok
+
+
+def _buscar_aprobacion(correo: str, plan_key: str) -> list:
+    return (
+        db()
+        .table("pagos")
+        .select("*")
+        .eq("correo", correo)
+        .eq("plan_key", plan_key)
+        .eq("estado", "approved")
+        .eq("wallet_processed", True)
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+
+
+def _reconciliar_pago(correo: str, plan_key: str, payment_id: int | None) -> bool:
+    """Intenta confirmar el pago con todas las estrategias disponibles y marca la fila como aprobada.
+
+    Da prioridad al payment_id de la URL, pero si no está presente o no resuelve,
+    procesa por correo (buscando en MercadoPago las preferencias de ese cliente)."""
+    if payment_id:
+        try:
+            if _procesar_pago(payment_id, plan_key_hint=plan_key):
                 return True
-    return False
+        except Exception:
+            pass
+    try:
+        if _procesar_por_correo(correo, plan_key):
+            return True
+    except Exception:
+        pass
+    return _buscar_aprobacion(correo, plan_key) and True
 
 
 class VerifyIn(BaseModel):
@@ -334,24 +375,9 @@ class VerifyIn(BaseModel):
 @router.post("/verificar")
 def verificar_pago(payload: VerifyIn):
     correo = _normalizar_correo(payload.correo)
-    if payload.payment_id:
-        _procesar_pago(payload.payment_id, plan_key_hint=payload.plan_key)
-    else:
-        _procesar_por_correo(correo, payload.plan_key)
+    _reconciliar_pago(correo, payload.plan_key, payload.payment_id)
 
-    row = (
-        db()
-        .table("pagos")
-        .select("id")
-        .eq("correo", correo)
-        .eq("plan_key", payload.plan_key)
-        .eq("estado", "approved")
-        .eq("wallet_processed", True)
-        .limit(1)
-        .execute()
-        .data
-        or []
-    )
+    row = _buscar_aprobacion(correo, payload.plan_key)
     if not row:
         return {"ok": False, "approved": False}
     return {"ok": True, "approved": True}
@@ -370,24 +396,9 @@ def set_password(payload: SetPasswordIn):
     if len(payload.password) < 6:
         raise HTTPException(400, "La contraseña debe tener al menos 6 caracteres.")
 
-    if payload.payment_id:
-        _procesar_pago(payload.payment_id, plan_key_hint=payload.plan_key)
-    else:
-        _procesar_por_correo(correo, payload.plan_key)
+    _reconciliar_pago(correo, payload.plan_key, payload.payment_id)
 
-    row = (
-        db()
-        .table("pagos")
-        .select("*")
-        .eq("correo", correo)
-        .eq("plan_key", payload.plan_key)
-        .eq("estado", "approved")
-        .eq("wallet_processed", True)
-        .limit(1)
-        .execute()
-        .data
-        or []
-    )
+    row = _buscar_aprobacion(correo, payload.plan_key)
     if not row:
         raise HTTPException(403, "No encontramos un pago aprobado para ese correo. Si ya pagaste, esperá unos segundos y volvé a intentar, o revisá que hayas usado el mismo correo.")
 

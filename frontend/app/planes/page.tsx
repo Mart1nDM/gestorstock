@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { apiFetch } from "../../lib/api";
 import type { PlanInfo } from "../../types";
 import { PLAN_CATALOG } from "../../lib/plan-catalog";
+import PaymentFormModal from "../../components/PaymentFormModal";
 
 function chooseHref(planKey: string) {
   return `/?plan=${planKey}#contacto`;
@@ -18,6 +19,7 @@ function formatLimite(value: number | null): string {
 
 export default function PlansPage() {
   const [planes, setPlanes] = useState<PlanInfo[]>(PLAN_CATALOG);
+  const [paidPlan, setPaidPlan] = useState<PlanInfo | null>(null);
 
   useEffect(() => {
     apiFetch<{ planes: PlanInfo[] }>("/planes")
@@ -25,8 +27,18 @@ export default function PlansPage() {
       .catch(() => { /* si la API no responde, mostramos el catálogo local */ });
   }, []);
 
+  const esPagado = (key: string) => key === "premium" || key === "pro";
+
   return (
     <main>
+      {paidPlan && (
+        <PaymentFormModal
+          planKey={paidPlan.key}
+          planNombre={paidPlan.nombre}
+          precioMensual={paidPlan.precio_mensual}
+          onClose={() => setPaidPlan(null)}
+        />
+      )}
       <header className="topbar">
         <div className="container topbar-inner">
           <Link href="/" className="brand"><img src="/logo.png" alt="MartoTech" style={{ width: 34, height: 34, objectFit: "contain", borderRadius: 8, verticalAlign: "middle", marginRight: 10 }} /> GESTOR ONLINE</Link>
@@ -94,7 +106,15 @@ export default function PlansPage() {
                   </div>
 
                   <div className="plan-footer">
-                    <Link className="btn btn-primary" href={chooseHref(plan.key)}>Elegir plan</Link>
+                    {esPagado(plan.key) ? (
+                      <button className="btn btn-primary" type="button" onClick={() => setPaidPlan(plan)}>
+                        Pagar {plan.nombre}
+                      </button>
+                    ) : (
+                      <Link className="btn btn-primary" href={chooseHref(plan.key)}>
+                        Solicitar gratis
+                      </Link>
+                    )}
                   </div>
                 </article>
               ))}
@@ -142,9 +162,15 @@ export default function PlansPage() {
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               {planes.map(plan => (
-                <Link key={plan.key} className="btn btn-secondary" href={chooseHref(plan.key)}>
-                  Elegir {plan.nombre}
-                </Link>
+                esPagado(plan.key) ? (
+                  <button key={plan.key} className="btn btn-secondary" type="button" onClick={() => setPaidPlan(plan)}>
+                    Pagar {plan.nombre}
+                  </button>
+                ) : (
+                  <Link key={plan.key} className="btn btn-secondary" href={chooseHref(plan.key)}>
+                    Elegir {plan.nombre}
+                  </Link>
+                )
               ))}
             </div>
           </div>

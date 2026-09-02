@@ -1,7 +1,10 @@
 import os
+import logging
 
 from fastapi import HTTPException
 from httpx import Client as HttpxClient
+
+log = logging.getLogger(__name__)
 
 try:
     from .deps import load_env_file
@@ -37,8 +40,13 @@ def verify_turnstile(token: str | None, remote_ip: str | None = None) -> bool:
         with HttpxClient(timeout=15.0) as client:
             resp = client.post(_SITEVERIFY_URL, data=payload)
             result = resp.json()
+        if not result.get("success"):
+            log.warning("Turnstile verification FAILED | remoteip=%s | response=%s", remote_ip, result)
+        else:
+            log.info("Turnstile verification OK | remoteip=%s", remote_ip)
         return bool(result.get("success"))
-    except Exception:
+    except Exception as exc:
+        log.error("Turnstile verification ERROR | remoteip=%s | exception=%s", remote_ip, exc)
         return False
 
 

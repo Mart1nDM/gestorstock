@@ -30,6 +30,9 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
   const [contactToken, setContactToken] = useState<string | null>(null);
   const [regToken, setRegToken] = useState<string | null>(null);
   const [supportToken, setSupportToken] = useState<string | null>(null);
+  const [contactWidgetKey, setContactWidgetKey] = useState(0);
+  const [regWidgetKey, setRegWidgetKey] = useState(0);
+  const [supportWidgetKey, setSupportWidgetKey] = useState(0);
 
   useEffect(() => {
     setSelectedPlan(initialPlan);
@@ -42,6 +45,7 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
     setRegSent(false);
     setRegSending(false);
     setRegToken(null);
+    setRegWidgetKey(k => k + 1);
     setAuthOpen(true);
   }
 
@@ -67,6 +71,8 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
       setSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo enviar la consulta.");
+      setContactToken(null);
+      setContactWidgetKey(k => k + 1);
     } finally {
       setSending(false);
     }
@@ -102,6 +108,8 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
       setSupportSent(true);
     } catch (err) {
       setSupportError(err instanceof Error ? err.message : "No se pudo enviar el ticket.");
+      setSupportToken(null);
+      setSupportWidgetKey(k => k + 1);
     } finally {
       setSupportSending(false);
     }
@@ -150,9 +158,20 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
       setRegSent(true);
     } catch (err) {
       setRegError(err instanceof Error ? err.message : "No se pudo enviar la solicitud.");
+      setRegToken(null);
+      setRegWidgetKey(k => k + 1);
     } finally {
       setRegSending(false);
     }
+  }
+
+  function openSupport() {
+    setSupportOpen(true);
+    setSupportSent(false);
+    setSupportError("");
+    setSupportSending(false);
+    setSupportToken(null);
+    setSupportWidgetKey(k => k + 1);
   }
 
   return <>
@@ -221,7 +240,7 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
           </div>
           <div className="field" style={{ marginTop: 14 }}><label className="label">Mensaje</label><textarea className="textarea" name="mensaje" required placeholder="Contame qué necesitás para tu negocio…" /></div>
           <div style={{ margin: "12px 0" }}>
-            <TurnstileWidget onToken={setContactToken} />
+            <TurnstileWidget key={`contact-${contactWidgetKey}`} onToken={setContactToken} />
           </div>
           {error && <div className="alert alert-error">{error}</div>}
           {sent && <div className="alert alert-success">Consulta enviada. Pronto un administrador se pondrá en contacto.</div>}
@@ -276,7 +295,7 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
               </div>
               <p className="muted" style={{ fontSize: 13, margin: 0 }}>Un administrador creará tu cuenta y recibirás la invitación para configurar tu contraseña.</p>
               <div style={{ margin: "12px 0" }}>
-                <TurnstileWidget onToken={setRegToken} />
+                <TurnstileWidget key={`reg-${regWidgetKey}`} onToken={setRegToken} />
               </div>
               {regError && <div className="alert alert-error">{regError}</div>}
               {regSent && <div className="alert alert-success">Solicitud enviada. Pronto se pondrán en contacto contigo.</div>}
@@ -287,7 +306,7 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
       </div>
     )}
 
-    <button type="button" className="public-support-fab" onClick={() => { setSupportOpen(true); setSupportSent(false); setSupportError(""); setSupportSending(false); setSupportToken(null); }} aria-label="Contactar soporte" title="Soporte">
+    <button type="button" className="public-support-fab" onClick={openSupport} aria-label="Contactar soporte" title="Soporte">
       <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 11a8 8 0 0 1 16 0v2" />
         <path d="M4 13h2a2 2 0 0 1 2 2v2H5a1 1 0 0 1-1-1v-3Z" />
@@ -314,7 +333,7 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
             </div>
             <div className="field"><label className="label">Mensaje</label><textarea className="textarea" name="mensaje" required placeholder="Indicá que olvidaste tu contraseña y cómo podemos contactarte." /></div>
             <div style={{ margin: "12px 0" }}>
-              <TurnstileWidget onToken={setSupportToken} />
+              <TurnstileWidget key={`support-${supportWidgetKey}`} onToken={setSupportToken} />
             </div>
             {supportError && <div className="alert alert-error">{supportError}</div>}
             {supportSent && <div className="alert alert-success">Ticket enviado. Soporte se pondrá en contacto para darte una contraseña temporal.</div>}

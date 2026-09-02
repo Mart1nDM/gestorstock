@@ -2,6 +2,8 @@ import os
 import sys
 from pathlib import Path
 
+import httpx
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from api.deps import load_env_file
 
@@ -17,14 +19,6 @@ if not token:
 prefix = token.split("-")[0] if "-" in token else token
 print(f"Token presente. Prefijo: {prefix!r}")
 print("(TEST => sandbox / prueba. APP_USR => produccion)")
-
-try:
-    import mercadopago
-except ImportError:
-    print("ERROR: no esta instalado el paquete 'mercadopago'. Corre: pip install mercadopago==3.5.0")
-    sys.exit(1)
-
-sdk = mercadopago.SDK(token)
 
 preference = {
     "items": [
@@ -44,13 +38,17 @@ preference = {
 }
 
 try:
-    response = sdk.preference().create(preference)
+    with httpx.Client(
+        base_url="https://api.mercadopago.com",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=30.0,
+    ) as client:
+        response = client.post("/checkout/preferences", json=preference)
+    accept = response.status_code
+    result = response.json() if response.content else {}
 except Exception as exc:
     print(f"ERROR al crear la preferencia: {exc}")
     sys.exit(1)
-
-result = response.get("response") or {}
-accept = response.get("status")
 
 if accept in (200, 201):
     pid = result.get("id")

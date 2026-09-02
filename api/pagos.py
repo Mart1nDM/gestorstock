@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Request
+from httpx import Client as HttpxClient
 from pydantic import BaseModel, EmailStr
 
 try:
@@ -14,14 +15,10 @@ except ImportError:
 
 load_env_file()
 
-try:
-    import mercadopago
-except ImportError:
-    mercadopago = None
-
 router = APIRouter(prefix="/api/pagos", tags=["pagos"])
 
 MERCADOPAGO_ACCESS_TOKEN = os.environ.get("MERCADOPAGO_ACCESS_TOKEN", "").strip()
+_MERCADOPAGO_API = "https://api.mercadopago.com"
 
 PLAN_PRICES = {
     "premium": {"nombre": "Premium", "precio": 5.99},
@@ -31,10 +28,14 @@ PLAN_PRICES = {
 _FRONTEND_URL = (SITE_URL or "https://gestorstock-web.vercel.app").rstrip("/")
 
 
-def _sdk():
-    if mercadopago is None or not MERCADOPAGO_ACCESS_TOKEN:
+def _client() -> HttpxClient:
+    if not MERCADOPAGO_ACCESS_TOKEN:
         raise HTTPException(500, "MercadoPago no está configurado en el backend.")
-    return mercadopago.SDK(MERCADOPAGO_ACCESS_TOKEN)
+    return HttpxClient(
+        base_url=_MERCADOPAGO_API,
+        headers={"Authorization": f"Bearer {MERCADOPAGO_ACCESS_TOKEN}"},
+        timeout=30.0,
+    )
 
 
 class PreferenciaIn(BaseModel):
@@ -53,7 +54,6 @@ def crear_preferencia(payload: PreferenciaIn):
     if not payload.correo:
         raise HTTPException(400, "El correo es obligatorio.")
 
-    sdk = _sdk()
     preferencia_id = str(uuid4())
     reference = f"gestor-{payload.plan_key}-{preferencia_id}"
 
@@ -81,8 +81,11 @@ def crear_preferencia(payload: PreferenciaIn):
         "auto_return": "approved",
     }
 
-    response = sdk.preference().create(preference)
-    result = response.get("response") or {}
+    with _client() as client:
+        response = client.post("/checkout/preferences", json=preference)
+        if response.status_code not in (200, 201):
+            raise HTTPException(502, f"MercadoPago no pudo crear la preferencia (HTTP {response.status_code}).")
+        result = response.json()
     mp_preference_id = result.get("id")
     init_point = result.get("init_point") or result.get("sandbox_init_point")
 
@@ -110,8 +113,6 @@ def _normalizar_correo(correo: str) -> str:
 
 
 def _crear_cuenta_pagada(correo: str, plan_key: str, telefono: str | None):
-    if not mercadopago:
-        raise HTTPException(500, "MercadoPago SDK no disponible.")
     from .usuarios import _ensure_plan_id
 
     plan_nombre = PLAN_PRICES[plan_key]["nombre"]
@@ -144,9 +145,11 @@ def _crear_cuenta_pagada(correo: str, plan_key: str, telefono: str | None):
 
 
 def _procesar_pago_aprobado(mp_payment_id):
-    sdk = _sdk()
-    payment_response = sdk.payment().get(mp_payment_id)
-    data = payment_response.get("response") or payment_response
+    with _client() as client:
+        response = client.get(f"/v1/payments/{mp_payment_id}")
+        if response.status_code != 200:
+            return False
+        data = response.json()
     if not data:
         return False
 

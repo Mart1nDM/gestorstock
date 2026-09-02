@@ -53,6 +53,7 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(false);
   const [busyRequestId, setBusyRequestId] = useState<number | null>(null);
   const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [regeneratingId, setRegeneratingId] = useState<number | null>(null);
   const [temporaryPasswordUserId, setTemporaryPasswordUserId] = useState<string | null>(null);
   const [planSavingUserId, setPlanSavingUserId] = useState<string | null>(null);
 
@@ -188,6 +189,23 @@ export default function SuperAdminPage() {
     }
   }
 
+  async function regenerateLink(invitation: AccountInvitation) {
+    setRegeneratingId(invitation.id);
+    setError("");
+    try {
+      const data = await apiFetch<{ ok: boolean; invite_url: string }>(`/usuarios/invitaciones/${invitation.id}/regenerar`, {
+        method: "POST",
+      });
+      setToast("Link regenerado. Se notificó al usuario por email.");
+      copyToClipboard(data.invite_url);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo regenerar el enlace.");
+    } finally {
+      setRegeneratingId(null);
+    }
+  }
+
   return (
     <AppShell>
       <div className="page-header">
@@ -313,9 +331,14 @@ export default function SuperAdminPage() {
                     <td>
                       <div className="actions">
                         {!done && (
-                          <button className="btn btn-secondary btn-sm" onClick={() => copyLink(invitation)}>
-                            {copiedId === invitation.id ? "Copiado" : "Copiar link"}
-                          </button>
+                          <>
+                            <button className="btn btn-primary btn-sm" disabled={regeneratingId === invitation.id} onClick={() => regenerateLink(invitation)}>
+                              {regeneratingId === invitation.id ? "Regenerando…" : "Regenerar link"}
+                            </button>
+                            <button className="btn btn-secondary btn-sm" onClick={() => copyLink(invitation)}>
+                              {copiedId === invitation.id ? "Copiado" : "Copiar link"}
+                            </button>
+                          </>
                         )}
                         {done && <span className="muted" style={{ fontSize: 12 }}>El enlace ya fue consumido</span>}
                       </div>

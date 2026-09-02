@@ -234,6 +234,43 @@ def invite_from_request(request_id: int, user=Depends(current_user)):
         request_id=request_id,
     )
     return {"ok": True, "invite_url": created["invite_url"], "invitation": created}
+
+
+@router.post("/invitaciones/{invitation_id}/regenerar")
+def regenerate_invitation(invitation_id: int, user=Depends(current_user)):
+    require_superadmin(user)
+    invitation_rows = db().table("account_invitations").select("*").eq("id", invitation_id).limit(1).execute().data or []
+    if not invitation_rows:
+        raise HTTPException(404, "Invitación no encontrada.")
+    row = invitation_rows[0]
+    if row.get("estado") == "completada":
+        raise HTTPException(400, "Esa invitación ya fue consumida, no hace falta regenerarla.")
+
+    auth_user = _find_auth_user_by_email(row.get("correo", ""))
+    if not auth_user:
+        raise HTTPException(400, "El usuario de esa invitación ya no existe en el sistema.")
+
+    confirmed = bool(
+        getattr(auth_user, "email_confirmed_at", None)
+        or getattr(auth_user, "confirmed_at", None)
+        or (getattr(auth_user, "user_metadata", {}) or {}).get("email_verified")
+    )
+    link = db().auth.admin.generate_link(
+        {
+            "type": "recovery" if confirmed else "invite",
+            "email": row["correo"],
+            "options": {
+                "data": {"nombre": row["nombre"]},
+                "redirect_to": _invite_redirect_url(str(auth_user.id)),
+            },
+        }
+    )
+    invite_url = _force_invite_redirect(link.properties.action_link, str(auth_user.id))
+    db().table("account_invitations").update({"invite_url": invite_url}).eq("id", invitation_id).execute()
+
+    send_invitation_email(correo=row["correo"], nombre=row["nombre"], invite_url=invite_url)
+    notify_admin_invitation_sent(correo=row["correo"], nombre=row["nombre"])
+    return {"ok": True, "invite_url": invite_url}
 @router.post("/solicitudes/{request_id}/contactar")
 def contact_request(request_id: int, user=Depends(current_user)):
     require_superadmin(user)

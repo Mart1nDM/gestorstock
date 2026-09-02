@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { FormEvent, Suspense, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { apiFetch } from "../../lib/api";
 
@@ -10,9 +9,21 @@ function PagoConfirmadoForm() {
   const plan = params.get("plan") || "";
   const email = params.get("email") || "";
   const status = params.get("status") || "";
+  const rawPaymentId = params.get("payment_id") || params.get("collection_id") || "";
+  const paymentId = rawPaymentId ? Number(rawPaymentId) : null;
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const isApproved = status === "approved" || status === "pending";
+
+  useEffect(() => {
+    if (!isApproved || !email || !plan) return;
+    apiFetch<{ ok: boolean }>("/pagos/verificar", {
+      method: "POST",
+      body: JSON.stringify({ correo: email, plan_key: plan, payment_id: paymentId }),
+    }).catch(() => null);
+  }, [email, plan, paymentId, isApproved]);
 
   async function handleSetPassword(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -26,7 +37,12 @@ function PagoConfirmadoForm() {
     try {
       const res = await apiFetch<{ ok: boolean }>("/pagos/set-password", {
         method: "POST",
-        body: JSON.stringify({ correo: email, password, plan_key: plan }),
+        body: JSON.stringify({
+          correo: email,
+          password,
+          plan_key: plan,
+          payment_id: paymentId,
+        }),
       });
       if (res.ok) {
         setSuccess(true);
@@ -41,17 +57,14 @@ function PagoConfirmadoForm() {
     }
   }
 
-  const isApproved = status === "approved" || status === "pending";
-
   return (
     <main className="container" style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
       <div className="card page-pad" style={{ width: "min(440px,100%)" }}>
-        <Link href="/" className="brand" style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
           <div style={{ position: "relative", width: 144, height: 144 }}>
             <img src="/logo.png" alt="MartoTech" width={144} height={144} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
           </div>
-        </Link>
-
+        </div>
         {success ? (
           <>
             <h1 style={{ textAlign: "center" }}>¡Cuenta lista!</h1>
@@ -70,9 +83,9 @@ function PagoConfirmadoForm() {
                 ? "El pago no pudo ser procesado. Podés intentar de nuevo."
                 : "Tu pago está pendiente de confirmación. Te notificaremos por correo cuando se acredite."}
             </p>
-            <Link className="btn btn-primary" href="/planes" style={{ width: "100%", marginTop: 16, textAlign: "center" }}>
+            <button className="btn btn-primary" style={{ width: "100%", marginTop: 16 }} onClick={() => window.location.href = "/planes"}>
               Volver a planes
-            </Link>
+            </button>
           </>
         ) : (
           <>

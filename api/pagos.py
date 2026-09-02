@@ -112,6 +112,15 @@ def _normalizar_correo(correo: str) -> str:
     return (correo or "").strip().lower()
 
 
+def _buscar_auth_user_por_email(correo: str) -> str | None:
+    from .usuarios import _find_auth_user_by_email
+
+    auth_user = _find_auth_user_by_email(correo)
+    if auth_user:
+        return str(auth_user.id)
+    return None
+
+
 def _crear_cuenta_pagada(correo: str, plan_key: str, telefono: str | None):
     from .usuarios import _ensure_plan_id
 
@@ -119,6 +128,23 @@ def _crear_cuenta_pagada(correo: str, plan_key: str, telefono: str | None):
     plan_id = _ensure_plan_id(plan_nombre)
 
     local_part = correo.split("@", 1)[0] or "Usuario"
+
+    user_id = _buscar_auth_user_por_email(correo)
+    if user_id:
+        db().table("profiles").upsert(
+            {
+                "id": user_id,
+                "nombre": local_part,
+                "apellido": "",
+                "correo": correo,
+                "telefono": telefono,
+                "rol": "cliente",
+                "plan_id": plan_id,
+                "activo": True,
+            }
+        ).execute()
+        return user_id
+
     created = db().auth.admin.create_user(
         {
             "email": correo,
@@ -144,75 +170,103 @@ def _crear_cuenta_pagada(correo: str, plan_key: str, telefono: str | None):
     return user_id
 
 
-def _procesar_pago_aprobado(mp_payment_id):
+def _consultar_pago(mp_payment_id) -> dict | None:
     with _client() as client:
         response = client.get(f"/v1/payments/{mp_payment_id}")
         if response.status_code != 200:
-            return False
-        data = response.json()
+            return None
+        return response.json()
+
+
+def _encontrar_fila(plan_key: str, correo: str | None, preferencia_id: str | None) -> dict | None:
+    if preferencia_id:
+        row = (
+            db()
+            .table("pagos")
+            .select("id, telefono, correo")
+            .eq("preferencia_id", preferencia_id)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        if row:
+            return row[0]
+    query = (
+        db()
+        .table("pagos")
+        .select("id, telefono, correo")
+        .eq("plan_key", plan_key)
+        .eq("wallet_processed", False)
+    )
+    if correo:
+        query = query.eq("correo", correo)
+    row = query.order("created_at", desc=True).limit(1).execute().data or []
+    return row[0] if row else None
+
+
+def _marcar_estado(pago_row_id: int, estado: str, mp_payment_id: int | None = None):
+    payload = {"estado": estado, "updated_at": datetime.now(timezone.utc).isoformat()}
+    if mp_payment_id:
+        payload["mercadopago_id"] = mp_payment_id
+    db().table("pagos").update(payload).eq("id", pago_row_id).execute()
+
+
+def _procesar_pago(mp_payment_id, *, plan_key_hint: str | None = None) -> bool:
+    data = _consultar_pago(mp_payment_id)
     if not data:
         return False
 
     status = data.get("status")
     reference = data.get("external_reference") or ""
-    plan_key = None
-    if "premium" in reference:
-        plan_key = "premium"
-    elif "pro" in reference:
-        plan_key = "pro"
+
+    plan_key = plan_key_hint
+    if not plan_key:
+        if "premium" in reference:
+            plan_key = "premium"
+        elif "pro" in reference:
+            plan_key = "pro"
     if not plan_key:
         return False
 
     correo = _normalizar_correo(data.get("payer", {}).get("email") or "")
-    row = (
-        db()
-        .table("pagos")
-        .select("id, telefono, correo")
-        .eq("preferencia_id", reference.replace(f"gestor-{plan_key}-", ""))
-        .limit(1)
-        .execute()
-        .data
-        or []
-    )
-    if not row:
-        query = (
-            db()
-            .table("pagos")
-            .select("id, telefono, correo")
-            .eq("plan_key", plan_key)
-            .eq("wallet_processed", False)
-        )
-        if correo:
-            query = query.eq("correo", correo)
-        row = query.order("created_at", desc=True).limit(1).execute().data or []
+
+    preferencia_id = None
+    if reference:
+        marker = f"gestor-{plan_key}-"
+        if marker in reference:
+            preferencia_id = reference.replace(marker, "")
+
+    row = _encontrar_fila(plan_key, correo or None, preferencia_id)
     if not row:
         return False
 
-    row = row[0]
     if not correo:
         correo = row.get("correo")
 
     if status == "approved":
         existing = db().table("pagos").select("profile_id").eq("id", row["id"]).limit(1).execute().data or []
         if existing and existing[0].get("profile_id"):
-            db().table("pagos").update({"estado": "approved", "mercadopago_id": int(mp_payment_id), "wallet_processed": True}).eq("id", row["id"]).execute()
+            _marcar_estado(row["id"], "approved", int(mp_payment_id))
             return True
-        profile_id = _crear_cuenta_pagada(correo, plan_key, row.get("telefono"))
-        now = datetime.now(timezone.utc).isoformat()
+        try:
+            profile_id = _crear_cuenta_pagada(correo, plan_key, row.get("telefono"))
+        except Exception:
+            return False
         db().table("pagos").update(
             {
                 "estado": "approved",
                 "mercadopago_id": int(mp_payment_id),
                 "profile_id": profile_id,
                 "wallet_processed": True,
-                "updated_at": now,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
             }
         ).eq("id", row["id"]).execute()
         return True
 
     if status in ("rejected", "cancelled"):
-        now = datetime.now(timezone.utc).isoformat()
-        db().table("pagos").update({"estado": status, "updated_at": now}).eq("id", row["id"]).execute()
+        _marcar_estado(row["id"], status, int(mp_payment_id))
+
     return False
 
 
@@ -225,17 +279,87 @@ async def webhook(request: Request):
 
     action = str(body.get("action") or body.get("type") or "")
     data_obj = body.get("data") or {}
-    mp_id = data_obj.get("id") or body.get("data_id")
-
-    if action.startswith("payment") and mp_id:
-        _procesar_pago_aprobado(mp_id)
+    mp_id = data_obj.get("id") or body.get("data_id") or request.query_params.get("id")
+    if mp_id and ("payment" in action or request.query_params.get("topic") == "payment"):
+        _procesar_pago(mp_id)
     return {"ok": True}
+
+
+def _procesar_por_correo(correo: str, plan_key: str) -> bool:
+    if not correo:
+        return False
+    rows = (
+        db()
+        .table("pagos")
+        .select("preferencia_id")
+        .eq("correo", correo)
+        .eq("plan_key", plan_key)
+        .eq("wallet_processed", False)
+        .order("created_at", desc=True)
+        .limit(5)
+        .execute()
+        .data
+        or []
+    )
+    for r in rows:
+        preferencia_id = r.get("preferencia_id")
+        if not preferencia_id:
+            continue
+        reference = f"gestor-{plan_key}-{preferencia_id}"
+        try:
+            with _client() as client:
+                search = client.get("/v1/payments/search", params={"external_reference": reference, "limit": 5})
+                if search.status_code != 200:
+                    continue
+                results = (search.json() or {}).get("results") or []
+        except Exception:
+            continue
+        for payment in results:
+            mp_id = payment.get("id")
+            if not mp_id:
+                continue
+            if _procesar_pago(mp_id, plan_key_hint=plan_key):
+                return True
+    return False
+
+
+class VerifyIn(BaseModel):
+    correo: EmailStr
+    plan_key: str
+    payment_id: int | None = None
+
+
+@router.post("/verificar")
+def verificar_pago(payload: VerifyIn):
+    correo = _normalizar_correo(payload.correo)
+    if payload.payment_id:
+        _procesar_pago(payload.payment_id, plan_key_hint=payload.plan_key)
+    else:
+        _procesar_por_correo(correo, payload.plan_key)
+
+    row = (
+        db()
+        .table("pagos")
+        .select("id")
+        .eq("correo", correo)
+        .eq("plan_key", payload.plan_key)
+        .eq("estado", "approved")
+        .eq("wallet_processed", True)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    if not row:
+        return {"ok": False, "approved": False}
+    return {"ok": True, "approved": True}
 
 
 class SetPasswordIn(BaseModel):
     correo: EmailStr
     password: str
     plan_key: str
+    payment_id: int | None = None
 
 
 @router.post("/set-password")
@@ -243,6 +367,11 @@ def set_password(payload: SetPasswordIn):
     correo = _normalizar_correo(payload.correo)
     if len(payload.password) < 6:
         raise HTTPException(400, "La contraseña debe tener al menos 6 caracteres.")
+
+    if payload.payment_id:
+        _procesar_pago(payload.payment_id, plan_key_hint=payload.plan_key)
+    else:
+        _procesar_por_correo(correo, payload.plan_key)
 
     row = (
         db()
@@ -258,11 +387,11 @@ def set_password(payload: SetPasswordIn):
         or []
     )
     if not row:
-        raise HTTPException(403, "No encontramos un pago aprobado para ese correo. Por favor, verifica tu compra.")
+        raise HTTPException(403, "No encontramos un pago aprobado para ese correo. Si ya pagaste, esperá unos segundos y volvé a intentar, o revisá que hayas usado el mismo correo.")
 
     user_id = row[0].get("profile_id")
     if not user_id:
-        raise HTTPException(400, "La cuenta aún no fue creada. Probá en unos segundos.")
+        raise HTTPException(400, "La cuenta aún no fue creada. Esperá unos segundos y volvé a intentar.")
 
     try:
         db().auth.admin.update_user_by_id(user_id, {"password": payload.password})

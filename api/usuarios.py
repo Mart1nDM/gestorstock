@@ -133,7 +133,7 @@ def _generate_invitation(*, nombre: str, apellido: str, correo: str, telefono: s
             "email": correo,
             "options": {
                 "data": {"nombre": nombre, "apellido": apellido},
-                "redirect_to": _invite_redirect_url(),
+                "redirect_to": _invite_redirect_url(str(auth_user.id)),
             },
         }
     )

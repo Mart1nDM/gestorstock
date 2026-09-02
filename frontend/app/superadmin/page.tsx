@@ -32,7 +32,7 @@ type AccountInvitation = {
   consumed_at: string | null;
 };
 
-type AdminUser = Profile & { created_at: string; plan_nombre?: string | null };
+type AdminUser = Profile & { created_at: string; plan_nombre?: string | null; invite_pendiente?: boolean };
 
 type PanelData = {
   usuarios: AdminUser[];
@@ -305,8 +305,9 @@ export default function SuperAdminPage() {
                     <td>{invitation.plan || "—"}</td>
                     <td>
                       <span className={`status ${done ? "status-ok" : "status-zero"}`}>
-                        {done ? "Activa" : "Pendiente"}
+                        {done ? "Activa" : "Sin contraseña"}
                       </span>
+                      {!done && <div className="muted" style={{ fontSize: 11, marginTop: 3 }}>Esperando que configure su contraseña</div>}
                     </td>
                     <td>{new Date(invitation.created_at).toLocaleString("es-AR")}</td>
                     <td>
@@ -375,6 +376,7 @@ export default function SuperAdminPage() {
                       <span className={`status ${u.activo ? "status-ok" : "status-zero"}`}>
                         {u.activo ? "Normal" : "Bloqueado"}
                       </span>
+                      {!isMe && u.invite_pendiente && <div className="muted" style={{ fontSize: 11, marginTop: 3 }}>Sin contraseña aún</div>}
                     </td>
                     <td>{new Date(u.created_at).toLocaleDateString("es-AR")}</td>
                     <td>

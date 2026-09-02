@@ -44,17 +44,17 @@ def _find_auth_user_by_email(email: str):
     return None
 
 
-def _invite_redirect_url() -> str:
+def _invite_redirect_url(token: str) -> str:
     site_url = (SITE_URL or "").strip().rstrip("/")
     if not site_url or "localhost" in site_url or "127.0.0.1" in site_url:
         site_url = "https://gestorstock-web.vercel.app"
-    return f"{site_url}/set-password"
+    return f"{site_url}/set-password?token={token}"
 
 
-def _force_invite_redirect(action_link: str) -> str:
+def _force_invite_redirect(action_link: str, token: str) -> str:
     parsed = urlparse(action_link)
     params = dict(parse_qsl(parsed.query, keep_blank_values=True))
-    params["redirect_to"] = _invite_redirect_url()
+    params["redirect_to"] = _invite_redirect_url(token)
     return urlunparse(parsed._replace(query=urlencode(params, doseq=True)))
 
 
@@ -138,7 +138,7 @@ def _generate_invitation(*, nombre: str, apellido: str, correo: str, telefono: s
         }
     )
 
-    invite_url = _force_invite_redirect(link.properties.action_link)
+    invite_url = _force_invite_redirect(link.properties.action_link, str(auth_user.id))
     invitation_payload = {
         "request_id": request_id,
         "profile_id": str(auth_user.id),
@@ -174,6 +174,7 @@ def list_users(q: str = "", user=Depends(current_user)):
     users = db().table("profiles").select("*, plans(id,nombre)").order("created_at", desc=True).execute().data or []
     solicitudes = db().table("contact_requests").select("*").eq("estado", "nuevo").order("creado_en", desc=True).execute().data or []
     cuentas = _list_account_invitations()
+    pending_profiles = {str(i.get("profile_id")) for i in cuentas if i.get("estado") == "pendiente"}
 
     if q.strip():
         term = q.lower()
@@ -185,6 +186,7 @@ def list_users(q: str = "", user=Depends(current_user)):
         plan = r.pop("plans", None) or {}
         r["plan_id"] = plan.get("id")
         r["plan_nombre"] = plan.get("nombre")
+        r["invite_pendiente"] = r["id"] in pending_profiles
 
     planes = db().table("plans").select("id,nombre").eq("activo", True).order("nombre").execute().data or []
     return {"usuarios": users, "solicitudes": solicitudes, "cuentas": cuentas, "planes": planes}
@@ -274,6 +276,8 @@ def set_temporary_password(user_id: str, payload: TemporaryPasswordIn, user=Depe
         raise
     except Exception as exc:
         raise HTTPException(400, "No se pudo establecer la contraseña temporal.") from exc
+    now = datetime.now(timezone.utc).isoformat()
+    db().table("account_invitations").update({"estado": "completada", "consumed_at": now}).eq("profile_id", user_id).eq("estado", "pendiente").execute()
     return {"ok": True}
 
 

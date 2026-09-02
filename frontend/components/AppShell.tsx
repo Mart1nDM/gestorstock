@@ -30,6 +30,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
   const [darkMode, setDarkMode] = useState(true);
+  const [scrolled, setScrolled] = useState(false);
   const [supportLoading, setSupportLoading] = useState(false);
   const [supportError, setSupportError] = useState("");
   const [supportSuccess, setSupportSuccess] = useState("");
@@ -41,6 +42,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const nextDarkMode = savedTheme !== "light";
     setDarkMode(nextDarkMode);
     document.documentElement.dataset.theme = nextDarkMode ? "dark" : "light";
+  }, []);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 12);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   useEffect(() => {
@@ -170,7 +178,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <main className="main-area">
-        <header className="app-topbar">
+        <header className={scrolled ? "app-topbar scrolled" : "app-topbar"}>
           <div><strong>Gestor de Stock</strong></div>
           <div className="app-account-info">
             <span className="plan-pill" style={{ borderColor: activePlan?.accent }}>{activePlan?.name || profile.plan_nombre || "Plan a definir"}</span>
@@ -182,14 +190,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </svg>
             </button>
           </div>
+          {profileOpen && (
+            <div className="profile-menu">
+              <div className="profile-summary"><strong>{profile.nombre} {profile.apellido}</strong><span className="muted">{profile.correo}</span></div>
+              <button type="button" onClick={() => { setPasswordOpen(true); setProfileOpen(false); setPasswordError(""); setPasswordSuccess(""); }}>🔒 Cambiar contraseña</button>
+              <button type="button" onClick={toggleTheme}>{darkMode ? "☀️ Activar modo claro" : "🌙 Activar modo oscuro"}</button>
+            </div>
+          )}
         </header>
-        {profileOpen && (
-          <div className="profile-menu">
-            <div className="profile-summary"><strong>{profile.nombre} {profile.apellido}</strong><span className="muted">{profile.correo}</span></div>
-            <button type="button" onClick={() => { setPasswordOpen(true); setProfileOpen(false); setPasswordError(""); setPasswordSuccess(""); }}>🔒 Cambiar contraseña</button>
-            <button type="button" onClick={toggleTheme}>{darkMode ? "☀️ Activar modo claro" : "🌙 Activar modo oscuro"}</button>
-          </div>
-        )}
         <section className="content">{children}</section>
       </main>
 

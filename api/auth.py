@@ -46,8 +46,35 @@ def contact(payload: ContactIn, request: Request):
     return {"ok": True, "id": result.data[0]["id"]}
 
 
+@router.get("/invitations/{token}")
+def get_invitation(token: str):
+    invitation = (
+        db()
+        .table("account_invitations")
+        .select("profile_id, nombre, correo, plan, estado")
+        .eq("profile_id", token)
+        .eq("estado", "pendiente")
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    if not invitation:
+        raise HTTPException(404, "La invitación no es válida o ya fue usada.")
+    row = invitation[0]
+    return {
+        "ok": True,
+        "profile_id": row["profile_id"],
+        "nombre": row["nombre"],
+        "correo": row["correo"],
+        "plan": row.get("plan"),
+    }
+
+
 @router.post("/invitations/complete")
-def complete_invitation(user=Depends(current_user)):
+def complete_invitation(token: str, user=Depends(current_user)):
+    if not token or token.strip() != user.id:
+        raise HTTPException(401, "Ese enlace de invitación no corresponde a tu cuenta.")
     invitation = (
         db()
         .table("account_invitations")

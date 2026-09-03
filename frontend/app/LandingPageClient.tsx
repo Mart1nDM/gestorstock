@@ -191,7 +191,7 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
       </div></section>
 
       <section className="features"><div className="container">
-        <div className="page-header"><div><h2 style={{ margin: 0 }}>La misma lógica, ahora preparada para crecer</h2><p className="muted">Tomé como base el funcionamiento de tu aplicación de escritorio actual.</p></div></div>
+        <div className="page-header"><div><h2 style={{ margin: 0 }}>La misma lógica, ahora preparada para crecer</h2><p className="muted">El papel y lapiz quedo atras, digitalizamos el proceso.</p></div></div>
         <div className="feature-grid">
           <div className="card feature-card"><div style={{ fontSize: 25 }}>📦</div><h3>Productos</h3><p>Alta, edición y baja lógica con búsqueda en tiempo real y ordenamiento por cualquier columna.</p></div>
           <div className="card feature-card"><div style={{ fontSize: 25 }}>🛒</div><h3>Ventas</h3><p>Seleccionás un producto, ingresás cantidad y precio, y el stock se descuenta en una operación atómica.</p></div>
@@ -200,7 +200,7 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
       </div></section>
 
       <section id="contacto" className="contact"><div id="solicitar" className="container contact-grid">
-        <div><div className="badge">🚀 Probá el sistema gratis</div><h2 style={{ fontSize: 38, margin: "18px 0 10px" }}>¿Querés probar el sistema?</h2><p className="muted" style={{ lineHeight: 1.7 }}>Dejame tus datos y te creo una cuenta gratuita de prueba. Desde el panel de administración activo tu acceso y te envío la invitación para que configures tu propia contraseña.</p></div>
+        <div><div className="badge">🚀 Probá el sistema gratis</div><h2 style={{ fontSize: 38, margin: "18px 0 10px" }}>¿Querés probar el sistema?</h2><p className="muted" style={{ lineHeight: 1.7 }}>Completa tus datos de contacto para completar la solicitud de prueba.</p></div>
         <form className="card page-pad" onSubmit={submitContact}>
           <div className="form-grid">
             <div className="field"><label className="label">Nombre</label><input className="input" name="nombre" required /></div>
@@ -209,7 +209,7 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
             <div className="field"><label className="label">Teléfono</label><input className="input" name="telefono" /></div>
           </div>
           {error && <div className="alert alert-error">{error}</div>}
-          {sent && <div className="alert alert-success">Solicitud enviada. Te contacto para crear tu cuenta gratuita.</div>}
+          {sent && <div className="alert alert-success">Solicitud enviada. Pronto te contactaremos.</div>}
           <button className="btn btn-primary" style={{ width: "100%", marginTop: 14 }} disabled={sending}>{sending ? "Enviando…" : "Pedir mi cuenta gratuita"}</button>
         </form>
       </div></section>
@@ -218,10 +218,10 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
     <footer className="footer"><div className="container footer-inner">
       <div className="footer-brand"><img src="/logo.png" alt="MartoTech" style={{ width: 30, height: 30, objectFit: "contain", borderRadius: 6, verticalAlign: "middle", marginRight: 9 }} /> Gestor Online</div>
       <div className="footer-social">
-        <a href="https://instagram.com/TU_USUARIO" target="_blank" rel="noopener noreferrer" aria-label="Instagram" title="Instagram">
+        <a href="https://instagram.com/martotech.ar" target="_blank" rel="noopener noreferrer" aria-label="Instagram" title="Instagram">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
         </a>
-        <a href="https://github.com/TU_USUARIO" target="_blank" rel="noopener noreferrer" aria-label="GitHub" title="GitHub">
+        <a href="https://github.com/Mart1nDM" target="_blank" rel="noopener noreferrer" aria-label="GitHub" title="GitHub">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.09.68-.22.68-.49v-1.7c-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.5-1.11-1.5-.91-.63.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.37-2.22-.26-4.56-1.14-4.56-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.28 2.75 1.05a9.36 9.36 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.94-2.34 4.8-4.57 5.06.36.32.68.94.68 1.9v2.82c0 .27.18.59.69.49A10.25 10.25 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>
         </a>
       </div>
@@ -253,9 +253,9 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
               <div className="field"><label className="label">Apellido</label><input className="input" name="apellido" /></div>
               <div className="field"><label className="label">Correo</label><input className="input" type="email" name="correo" required /></div>
               <div className="field"><label className="label">Teléfono</label><input className="input" name="telefono" /></div>
-              <p className="muted" style={{ fontSize: 13, margin: 0 }}>Pedís una cuenta gratuita de prueba. Un administrador la activa y recibís la invitación para configurar tu contraseña.</p>
+              <p className="muted" style={{ fontSize: 13, margin: 0 }}>Solicitas una cuenta gratuita de prueba y te llega el link para configurar tu contraseña.</p>
               {regError && <div className="alert alert-error">{regError}</div>}
-              {regSent && <div className="alert alert-success">Solicitud enviada. Pronto se pondrán en contacto contigo.</div>}
+              {regSent && <div className="alert alert-success">Solicitud enviada. Pronto te contactaremos.</div>}
               <button className="btn btn-primary" disabled={regSending}>{regSending ? "Enviando…" : "Enviar solicitud"}</button>
             </form>
           )}
@@ -276,8 +276,8 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
         <div className="modal public-support-modal" onClick={event => event.stopPropagation()}>
           <div className="page-header" style={{ alignItems: "center", marginBottom: 16 }}>
             <div>
-              <h2 style={{ margin: 0 }}>Soporte de acceso</h2>
-              <p className="muted" style={{ marginBottom: 0 }}>Solicitá una contraseña temporal por correo o teléfono.</p>
+              <h2 style={{ margin: 0 }}>Soporte web</h2>
+              <p className="muted" style={{ marginBottom: 0 }}>Indicanos cuál es tu duda o problema y te ayudaremos a resolverlo.</p>
             </div>
             <button className="btn btn-secondary btn-sm" type="button" onClick={() => setSupportOpen(false)}>Cerrar</button>
           </div>
@@ -290,7 +290,7 @@ export default function LandingPageClient({ initialPlan }: { initialPlan: string
             </div>
             <div className="field"><label className="label">Mensaje</label><textarea className="textarea" name="mensaje" required placeholder="Indicá que olvidaste tu contraseña y cómo podemos contactarte." /></div>
             {supportError && <div className="alert alert-error">{supportError}</div>}
-            {supportSent && <div className="alert alert-success">Ticket enviado. Soporte se pondrá en contacto para darte una contraseña temporal.</div>}
+            {supportSent && <div className="alert alert-success">Ticket enviado. Soporte se pondrá en contacto contigo.</div>}
             <button className="btn btn-primary" disabled={supportSending}>{supportSending ? "Enviando…" : "Enviar ticket a soporte"}</button>
           </form>
         </div>

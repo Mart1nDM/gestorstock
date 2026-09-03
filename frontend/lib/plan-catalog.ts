@@ -4,7 +4,7 @@ export const PLAN_CATALOG: PlanInfo[] = [
   {
     key: "gratis",
     nombre: "Gratis",
-    precio: "$0/mes",
+    precio: "$0",
     subtitle: "Para empezar sin costo y ordenar el inventario básico.",
     products: "Hasta 10 productos",
     limite_productos: 10,
@@ -35,11 +35,11 @@ export const PLAN_CATALOG: PlanInfo[] = [
   {
     key: "premium",
     nombre: "Premium",
-    precio: "$5099,99",
+    precio: "$5999,99",
     subtitle: "Más capacidad para crecer con datos más claros.",
     products: "Hasta 100 productos",
     limite_productos: 100,
-    precio_mensual: 5099.99,
+    precio_mensual: 5999.99,
     accent: "var(--accent)",
     destacado: true,
     soporte: {

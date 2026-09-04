@@ -31,7 +31,7 @@ def dashboard(user: AuthUser = Depends(current_user)):
         return []
 
     products = fetch_rows(
-        db().table("productos").select("id,nombre,categoria,cantidad,cantidad_minima,precio_costo,activo").eq("owner_id", user.id).eq("activo", True),
+        db().table("productos").select("id,nombre,categoria,cantidad,cantidad_minima,precio_costo,precio_venta,activo").eq("owner_id", user.id).eq("activo", True),
         "las métricas de stock",
     )
     sales = fetch_rows(
@@ -48,7 +48,9 @@ def dashboard(user: AuthUser = Depends(current_user)):
         and int(product.get("cantidad") or 0) <= int(product.get("cantidad_minima") or 0)
     )
     unidades = sum(int(product.get("cantidad") or 0) for product in products)
-    valor_inventario = sum(float(product.get("precio_costo") or 0) * int(product.get("cantidad") or 0) for product in products)
+    def precio_valor(p):
+        return float(p.get("precio_venta") or 0) if float(p.get("precio_venta") or 0) > 0 else float(p.get("precio_costo") or 0)
+    valor_inventario = sum(precio_valor(product) * int(product.get("cantidad") or 0) for product in products)
     categorias = len({product.get("categoria") for product in products if product.get("categoria")})
 
     today_prefix = date.today().isoformat()
@@ -93,7 +95,7 @@ def dashboard(user: AuthUser = Depends(current_user)):
     for product in products:
         categoria = product.get("categoria") or "Sin categoría"
         stock_por_categoria[categoria] = stock_por_categoria.get(categoria, 0) + int(product.get("cantidad") or 0)
-        valor_por_categoria[categoria] = valor_por_categoria.get(categoria, 0) + float(product.get("precio_costo") or 0) * int(product.get("cantidad") or 0)
+        valor_por_categoria[categoria] = valor_por_categoria.get(categoria, 0) + precio_valor(product) * int(product.get("cantidad") or 0)
 
     def to_pie(data: dict) -> list[dict]:
         return [{"name": k, "value": round(v, 2)} for k, v in sorted(data.items(), key=lambda kv: kv[1], reverse=True)]

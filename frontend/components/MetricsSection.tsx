@@ -6,6 +6,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { apiFetch } from "../lib/api";
+import { supabase } from "../lib/supabase";
 import TurnstileWidget from "./TurnstileWidget";
 import type { Dashboard, MetaData, PlanInfo } from "../types";
 
@@ -45,10 +46,10 @@ function PieDonut({ data, title }: { data: { name: string; value: number }[]; ti
       {data.length === 0 ? <p className="muted">Sin datos todavía.</p> : (
         <ResponsiveContainer width="100%" height={240}>
           <PieChart>
-            <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>
-              {data.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-            </Pie>
-            <Tooltip formatter={fmt as any} />
+          <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={{ fill: "var(--text)", fontSize: 12 }}>
+            {data.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+          </Pie>
+          <Tooltip formatter={fmt as any} contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text)" }} />
             <Legend />
           </PieChart>
         </ResponsiveContainer>
@@ -109,9 +110,14 @@ export default function MetricsSection() {
     setReportError("");
     setReportLoading(true);
     try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
       const res = await fetch("/api/reportes", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ periodo: reportPeriodo, cf_turnstile_response: reportToken }),
       });
       if (!res.ok) {
@@ -166,7 +172,7 @@ export default function MetricsSection() {
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.06)" />
                 <XAxis dataKey="dia" stroke="var(--muted)" fontSize={12} />
                 <YAxis stroke="var(--muted)" fontSize={12} />
-                <Tooltip formatter={fmt as any} contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)" }} />
+                <Tooltip formatter={fmt as any} contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text)" }} />
                 <Area type="monotone" dataKey="total" name="Ventas" stroke="var(--accent)" fill="rgba(79,142,247,.25)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
@@ -185,7 +191,7 @@ export default function MetricsSection() {
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.06)" />
                 <XAxis dataKey="name" stroke="var(--muted)" fontSize={12} />
                 <YAxis stroke="var(--muted)" fontSize={12} />
-                <Tooltip contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)" }} />
+                <Tooltip contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)", color: "var(--text)" }} />
                 <Bar dataKey="value" name="Unidades">
                   {(graficasSecas.composicion_stock).map((entry, i) => {
                     const color = entry.name === "Sin stock" ? "var(--danger)" : entry.name === "Stock bajo" ? "var(--warning)" : "var(--success)";

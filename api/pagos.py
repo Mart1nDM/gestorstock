@@ -51,52 +51,6 @@ class PreferenciaIn(BaseModel):
     plan_key: str
 
 
-# Cache de ids de preapproval_plan por plan (se crean en shop de MP).
-_PREAPPROVAL_PLAN_CACHE: dict[str, str] = {}
-
-
-def _get_preapproval_plan_id(plan_key: str, logger=None) -> str | None:
-    """Busca/reutiliza un preapproval_plan existente en MercadoPago para el plan."""
-    if plan_key in _PREAPPROVAL_PLAN_CACHE:
-        return _PREAPPROVAL_PLAN_CACHE[plan_key]
-    with _client() as client:
-        response = client.get("/preapproval_plan/search", params={"status": "active", "limit": 100})
-        if response.status_code == 200:
-            for item in (response.json() or {}).get("results") or []:
-                title = (item.get("reason") or item.get("auto_recurring") or {}).get("title") or ""
-                if plan_key in str(title).lower():
-                    _PREAPPROVAL_PLAN_CACHE[plan_key] = item["id"]
-                    return item["id"]
-    return None
-
-
-def _crear_preapproval_plan(plan_key: str) -> str:
-    plan = PLAN_PRICES[plan_key]
-    plan_data = {
-        "reason": f"Suscripcion plan {plan['nombre']} - Gestor Online",
-        "auto_recurring": {
-            "frequency": 1,
-            "frequency_type": "months",
-            "transaction_amount": float(plan["precio"]),
-            "currency_id": "ARS",
-            "billing_day": 1,
-            "billing_day_proportional": False,
-        },
-        "payment_methods_allowed": {
-            "payment_types": [{"id": "credit_card"}, {"id": "debit_card"}],
-        },
-        "back_url": f"{_FRONTEND_URL}/pago-confirmado",
-    }
-    with _client() as client:
-        response = client.post("/preapproval_plan", json=plan_data)
-        if response.status_code not in (200, 201):
-            raise HTTPException(502, f"MercadoPago no pudo crear el plan de suscripción (HTTP {response.status_code}).")
-        result = response.json()
-    plan_id = result.get("id")
-    _PREAPPROVAL_PLAN_CACHE[plan_key] = plan_id
-    return plan_id
-
-
 @router.post("/preferencia")
 def crear_preferencia(payload: PreferenciaIn):
     plan = PLAN_PRICES.get(payload.plan_key)
@@ -108,28 +62,27 @@ def crear_preferencia(payload: PreferenciaIn):
     preferencia_id = str(uuid4())
     reference = f"gestor-{payload.plan_key}-{preferencia_id}"
 
-    # Buscar el plan de suscripción existente o crearlo.
-    preapproval_plan_id = _get_preapproval_plan_id(payload.plan_key)
-    if not preapproval_plan_id:
-        preapproval_plan_id = _crear_preapproval_plan(payload.plan_key)
-
+    # Suscripción mensual recurrente. Se usa el endpoint /preapproval sin plan
+    # asociado: con payer_email MercadoPago devuelve un init_point de checkout
+    # donde el cliente elige el medio de pago (a diferencia del plan asociado,
+    # que exige card_token_id y status authorized).
     subscription = {
-        "preapproval_plan_id": preapproval_plan_id,
         "payer_email": payload.correo,
         "reason": f"Suscripcion plan {plan['nombre']} - Gestor Online",
         "external_reference": reference,
-        "back_url": f"{_FRONTEND_URL}/pago-confirmado?plan={payload.plan_key}&email={payload.correo}&status=approved",
+        "back_url": f"{_FRONTEND_URL}/pago-confirmado?plan={payload.plan_key}&email={payload.correo}",
         "auto_recurring": {
-            "currency_id": "ARS",
-            "transaction_amount": float(plan["precio"]),
             "frequency": 1,
+            "frequency_type": "months",
+            "transaction_amount": float(plan["precio"]),
+            "currency_id": "ARS",
         },
     }
 
     with _client() as client:
         response = client.post("/preapproval", json=subscription)
         if response.status_code not in (200, 201):
-            raise HTTPException(502, f"MercadoPago no pudo crear la suscripción (HTTP {response.status_code}).")
+            raise HTTPException(502, f"MercadoPago no pudo crear la suscripción (HTTP {response.status_code}). Revasá que el Access Token de producción sea el correcto y que la cuenta tenga habilitado el producto de cobros.")
         result = response.json()
 
     init_point = result.get("init_point") or result.get("sandbox_init_point")
@@ -165,7 +118,7 @@ def crear_preferencia(payload: PreferenciaIn):
             }
         ).execute()
 
-    return {"ok": True, "init_point": init_point, "preferencia_id": preferencia_id, "subscription_id": result.get("id"), "mercadopago_preference_id": preapproval_plan_id}
+    return {"ok": True, "init_point": init_point, "preferencia_id": preferencia_id, "subscription_id": result.get("id")}
 
 
 def _normalizar_correo(correo: str) -> str:

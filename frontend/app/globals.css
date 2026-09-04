@@ -111,6 +111,12 @@ button { cursor: pointer; }
 .btn-danger { background: #4b1b24; color: #fecaca; border-color: #7f1d1d; }
 .btn-success { background: #155e38; color: #dcfce7; }
 .btn-ghost { background: transparent; color: var(--muted); }
+.btn-report {
+  background: linear-gradient(135deg, #7c3aed 0%, #4f8ef7 100%);
+  color: white; border-color: transparent; box-shadow: 0 6px 18px rgba(124,58,237,.35);
+}
+.btn-report:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.btn-report:disabled { opacity: .55; cursor: not-allowed; transform: none; }
 .btn-sm { padding: 7px 10px; font-size: 13px; }
 
 .input, .select, .textarea {

@@ -54,7 +54,7 @@ export default function PaymentFormModal({ planKey, planNombre, precioMensual, o
           <button onClick={onClose} className="btn btn-ghost" style={{ fontSize: 20, lineHeight: 1, padding: "4px 8px" }}>&times;</button>
         </div>
         <p className="muted" style={{ marginTop: 0 }}>
-          Pago único de <strong>${precioMensual.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ARS</strong>. Completá tus datos para ir a MercadoPago. La cuenta es para 1 usuario.
+          Suscripción mensual de <strong>${precioMensual.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ARS/mes</strong>. Completá tus datos para ir a MercadoPago y activar el cobro mensual. La cuenta es para 1 usuario.
         </p>
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 14 }}>
           <div className="field">

@@ -14,6 +14,7 @@ const links = [
   ["➕", "Agregar Producto", "/productos?nuevo=1"],
   ["🔎", "Inventario", "/productos"],
   ["🛒", "Ventas", "/ventas"],
+  ["🔗", "Compartir", "/compartir"],
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {

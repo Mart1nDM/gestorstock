@@ -6,6 +6,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { apiFetch } from "../lib/api";
+import TurnstileWidget from "./TurnstileWidget";
 import type { Dashboard, MetaData, PlanInfo } from "../types";
 
 const PIE_COLORS = ["#4F8EF7", "#7C3AED", "#22C55E", "#F59E0B", "#EF4444", "#06B6D4", "#EC4899", "#8B5CF6"];
@@ -64,6 +65,11 @@ export default function MetricsSection() {
   const [goalInput, setGoalInput] = useState("");
   const [savingGoal, setSavingGoal] = useState(false);
   const [goalMsg, setGoalMsg] = useState("");
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportPeriodo, setReportPeriodo] = useState("mensual");
+  const [reportToken, setReportToken] = useState<string | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -95,6 +101,38 @@ export default function MetricsSection() {
       setGoalMsg(err instanceof Error ? err.message : "No se pudo guardar la meta.");
     } finally {
       setSavingGoal(false);
+    }
+  }
+
+  async function downloadReport() {
+    if (!reportToken || !plan || plan.key !== "pro") return;
+    setReportError("");
+    setReportLoading(true);
+    try {
+      const res = await fetch("/api/reportes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ periodo: reportPeriodo, cf_turnstile_response: reportToken }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.detail || "No se pudo generar el reporte.");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `reporte_${reportPeriodo}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setReportOpen(false);
+      setReportToken(null);
+    } catch (err) {
+      setReportError(err instanceof Error ? err.message : "No se pudo generar el reporte.");
+    } finally {
+      setReportLoading(false);
     }
   }
 
@@ -201,6 +239,50 @@ export default function MetricsSection() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {plan.key === "pro" && (
+        <div className="card section-card report-card">
+          <div className="section-title">📄 Reporte PDF</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div className="muted" style={{ maxWidth: 420, fontSize: 13 }}>
+              Descargá un resumen de tu inventario y ventas en formato PDF. Elegí el período y verificá que no sos un robot.
+            </div>
+            <button type="button" className="btn btn-report" onClick={() => { setReportPeriodo("mensual"); setReportToken(null); setReportError(""); setReportOpen(true); }}>
+              ⬇️ Descargar reporte PDF
+            </button>
+          </div>
+        </div>
+      )}
+
+      {reportOpen && (
+        <div className="modal-backdrop" onClick={() => { if (!reportLoading) setReportOpen(false); }}>
+          <div className="modal confirm-send-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 460 }}>
+            <div className="page-header" style={{ alignItems: "center", marginBottom: 16 }}>
+              <div>
+                <h2 style={{ margin: 0 }}>Descargar reporte PDF</h2>
+                <p className="muted" style={{ marginBottom: 0 }}>Elegí el período y completá la verificación de seguridad.</p>
+              </div>
+              <button className="btn btn-secondary btn-sm" type="button" disabled={reportLoading} onClick={() => setReportOpen(false)}>Cerrar</button>
+            </div>
+            <div style={{ display: "grid", gap: 16 }}>
+              <div className="field">
+                <label className="label">Período</label>
+                <select className="select" value={reportPeriodo} onChange={e => { setReportPeriodo(e.target.value); setReportToken(null); setReportError(""); }}>
+                  <option value="diario">Diario</option>
+                  <option value="semanal">Semanal</option>
+                  <option value="mensual">Mensual</option>
+                  <option value="anual">Anual</option>
+                </select>
+              </div>
+              <TurnstileWidget onToken={setReportToken} />
+              {reportError && <div className="alert alert-error">{reportError}</div>}
+              <button className="btn btn-report" disabled={!reportToken || reportLoading} style={{ width: "100%" }} onClick={downloadReport}>
+                {reportLoading ? "Generando…" : reportToken ? "Descargar PDF" : "Resolvé la verificación…"}
+              </button>
+            </div>
           </div>
         </div>
       )}

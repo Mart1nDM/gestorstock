@@ -91,6 +91,8 @@ export type PlanInfo = {
     productos: number | null;
     usuarios: number | string;
     historial_ventas: string;
+    inventario_compartido?: number;
+    reporte_pdf?: boolean;
   };
 };
 

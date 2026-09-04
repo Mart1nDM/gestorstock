@@ -42,7 +42,7 @@ PLAN_CATALOG = [
     {
         "key": "premium",
         "nombre": "Premium",
-        "precio": "$5099,99",
+        "precio": "$5099,99/mes",
         "subtitle": "Más capacidad para crecer con datos más claros.",
         "products": "Hasta 100 productos",
         "limite_productos": 100,
@@ -74,7 +74,7 @@ PLAN_CATALOG = [
     {
         "key": "pro",
         "nombre": "Pro",
-        "precio": "$9999,99",
+        "precio": "$9999,99/mes",
         "subtitle": "Para operación completa, análisis y soporte más cercano.",
         "products": "Productos ilimitados",
         "limite_productos": None,
@@ -96,11 +96,15 @@ PLAN_CATALOG = [
             "Gráficos de análisis",
             "Metas de ventas avanzadas",
             "Soporte personalizado",
+            "Inventario compartido (hasta 5 personas)",
+            "Reporte PDF por período",
         ],
         "limites": {
             "productos": None,
             "usuarios": 1,
             "historial_ventas": "Histórico completo",
+            "inventario_compartido": 5,
+            "reporte_pdf": True,
         },
     },
 ]

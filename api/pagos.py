@@ -51,6 +51,52 @@ class PreferenciaIn(BaseModel):
     plan_key: str
 
 
+# Cache de ids de preapproval_plan por plan (se crean en shop de MP).
+_PREAPPROVAL_PLAN_CACHE: dict[str, str] = {}
+
+
+def _get_preapproval_plan_id(plan_key: str, logger=None) -> str | None:
+    """Busca/reutiliza un preapproval_plan existente en MercadoPago para el plan."""
+    if plan_key in _PREAPPROVAL_PLAN_CACHE:
+        return _PREAPPROVAL_PLAN_CACHE[plan_key]
+    with _client() as client:
+        response = client.get("/preapproval_plan/search", params={"status": "active", "limit": 100})
+        if response.status_code == 200:
+            for item in (response.json() or {}).get("results") or []:
+                title = (item.get("reason") or item.get("auto_recurring") or {}).get("title") or ""
+                if plan_key in str(title).lower():
+                    _PREAPPROVAL_PLAN_CACHE[plan_key] = item["id"]
+                    return item["id"]
+    return None
+
+
+def _crear_preapproval_plan(plan_key: str) -> str:
+    plan = PLAN_PRICES[plan_key]
+    plan_data = {
+        "reason": f"Suscripcion plan {plan['nombre']} - Gestor Online",
+        "auto_recurring": {
+            "frequency": 1,
+            "frequency_type": "months",
+            "transaction_amount": float(plan["precio"]),
+            "currency_id": "ARS",
+            "billing_day": 1,
+            "billing_day_proportional": False,
+        },
+        "payment_methods_allowed": {
+            "payment_types": [{"id": "credit_card"}, {"id": "debit_card"}],
+        },
+        "back_url": f"{_FRONTEND_URL}/pago-confirmado",
+    }
+    with _client() as client:
+        response = client.post("/preapproval_plan", json=plan_data)
+        if response.status_code not in (200, 201):
+            raise HTTPException(502, f"MercadoPago no pudo crear el plan de suscripción (HTTP {response.status_code}).")
+        result = response.json()
+    plan_id = result.get("id")
+    _PREAPPROVAL_PLAN_CACHE[plan_key] = plan_id
+    return plan_id
+
+
 @router.post("/preferencia")
 def crear_preferencia(payload: PreferenciaIn):
     plan = PLAN_PRICES.get(payload.plan_key)
@@ -62,55 +108,64 @@ def crear_preferencia(payload: PreferenciaIn):
     preferencia_id = str(uuid4())
     reference = f"gestor-{payload.plan_key}-{preferencia_id}"
 
-    preference = {
-        "items": [
-            {
-                "title": f"Licencia plan {plan['nombre']} - Gestor Online",
-                "quantity": 1,
-                "unit_price": float(plan["precio"]),
-                "currency_id": "ARS",
-            }
-        ],
-        "payer": {
-            "name": payload.nombre,
-            "surname": payload.apellido,
-            "email": payload.correo,
-            "phone": {"number": payload.telefono or ""},
-        },
+    # Buscar el plan de suscripción existente o crearlo.
+    preapproval_plan_id = _get_preapproval_plan_id(payload.plan_key)
+    if not preapproval_plan_id:
+        preapproval_plan_id = _crear_preapproval_plan(payload.plan_key)
+
+    subscription = {
+        "preapproval_plan_id": preapproval_plan_id,
+        "payer_email": payload.correo,
+        "reason": f"Suscripcion plan {plan['nombre']} - Gestor Online",
         "external_reference": reference,
-        "back_urls": {
-            "success": f"{_FRONTEND_URL}/pago-confirmado?plan={payload.plan_key}&email={payload.correo}&status=approved",
-            "pending": f"{_FRONTEND_URL}/pago-confirmado?plan={payload.plan_key}&email={payload.correo}&status=pending",
-            "failure": f"{_FRONTEND_URL}/pago-confirmado?plan={payload.plan_key}&email={payload.correo}&status=failure",
+        "back_url": f"{_FRONTEND_URL}/pago-confirmado?plan={payload.plan_key}&email={payload.correo}&status=approved",
+        "auto_recurring": {
+            "currency_id": "ARS",
+            "transaction_amount": float(plan["precio"]),
+            "frequency": 1,
         },
-        "auto_return": "approved",
     }
 
     with _client() as client:
-        response = client.post("/checkout/preferences", json=preference)
+        response = client.post("/preapproval", json=subscription)
         if response.status_code not in (200, 201):
-            raise HTTPException(502, f"MercadoPago no pudo crear la preferencia (HTTP {response.status_code}).")
+            raise HTTPException(502, f"MercadoPago no pudo crear la suscripción (HTTP {response.status_code}).")
         result = response.json()
-    mp_preference_id = result.get("id")
-    init_point = result.get("init_point") or result.get("sandbox_init_point")
 
+    init_point = result.get("init_point") or result.get("sandbox_init_point")
     if not init_point:
         raise HTTPException(502, "MercadoPago no devolvió una URL de pago.")
 
-    db().table("pagos").insert(
-        {
-            "preferencia_id": preferencia_id,
-            "correo": payload.correo.strip().lower(),
-            "nombre": payload.nombre,
-            "apellido": payload.apellido,
-            "telefono": payload.telefono,
-            "plan_key": payload.plan_key,
-            "monto": float(plan["precio"]),
-            "estado": "pending",
-        }
-    ).execute()
+    try:
+        db().table("pagos").insert(
+            {
+                "preferencia_id": preferencia_id,
+                "correo": payload.correo.strip().lower(),
+                "nombre": payload.nombre,
+                "apellido": payload.apellido,
+                "telefono": payload.telefono,
+                "plan_key": payload.plan_key,
+                "monto": float(plan["precio"]),
+                "estado": "pending",
+                "recurrente": True,
+            }
+        ).execute()
+    except Exception:
+        # Si la columna recurrente aún no existe, reintentamos sin ella.
+        db().table("pagos").insert(
+            {
+                "preferencia_id": preferencia_id,
+                "correo": payload.correo.strip().lower(),
+                "nombre": payload.nombre,
+                "apellido": payload.apellido,
+                "telefono": payload.telefono,
+                "plan_key": payload.plan_key,
+                "monto": float(plan["precio"]),
+                "estado": "pending",
+            }
+        ).execute()
 
-    return {"ok": True, "init_point": init_point, "preferencia_id": preferencia_id, "mercadopago_preference_id": mp_preference_id}
+    return {"ok": True, "init_point": init_point, "preferencia_id": preferencia_id, "subscription_id": result.get("id"), "mercadopago_preference_id": preapproval_plan_id}
 
 
 def _normalizar_correo(correo: str) -> str:
@@ -124,7 +179,7 @@ def _buscar_auth_user_por_email(correo: str) -> str | None:
     return None
 
 
-def _crear_cuenta_pagada(correo: str, plan_key: str, telefono: str | None):
+def _crear_cuenta_pagada(correo: str, plan_key: str, telefono: str | None, subscription_id: str | None = None):
     plan_nombre = PLAN_PRICES[plan_key]["nombre"]
     plan_id = _ensure_plan_id(plan_nombre)
 
@@ -132,18 +187,21 @@ def _crear_cuenta_pagada(correo: str, plan_key: str, telefono: str | None):
 
     user_id = _buscar_auth_user_por_email(correo)
     if user_id:
-        db().table("profiles").upsert(
-            {
-                "id": user_id,
-                "nombre": local_part,
-                "apellido": "",
-                "correo": correo,
-                "telefono": telefono,
-                "rol": "cliente",
-                "plan_id": plan_id,
-                "activo": True,
-            }
-        ).execute()
+        base = {
+            "id": user_id,
+            "nombre": local_part,
+            "apellido": "",
+            "correo": correo,
+            "telefono": telefono,
+            "rol": "cliente",
+            "plan_id": plan_id,
+            "activo": True,
+        }
+        try:
+            base.update(_subscription_payload(plan_key, subscription_id))
+        except Exception:
+            base.pop("subscription_status", None)
+        db().table("profiles").upsert(base).execute()
         return user_id
 
     created = db().auth.admin.create_user(
@@ -156,19 +214,37 @@ def _crear_cuenta_pagada(correo: str, plan_key: str, telefono: str | None):
     )
     user_id = str(getattr(created, "user", None).id)
 
-    db().table("profiles").upsert(
-        {
-            "id": user_id,
-            "nombre": local_part,
-            "apellido": "",
-            "correo": correo,
-            "telefono": telefono,
-            "rol": "cliente",
-            "plan_id": plan_id,
-            "activo": True,
-        }
-    ).execute()
+    base = {
+        "id": user_id,
+        "nombre": local_part,
+        "apellido": "",
+        "correo": correo,
+        "telefono": telefono,
+        "rol": "cliente",
+        "plan_id": plan_id,
+        "activo": True,
+    }
+    try:
+        base.update(_subscription_payload(plan_key, subscription_id))
+    except Exception:
+        pass
+    db().table("profiles").upsert(base).execute()
     return user_id
+
+
+def _subscription_payload(plan_key: str, subscription_id: str | None) -> dict:
+    """Devuelve los campos de suscripción a guardar en el profile (con respaldo si faltan columnas)."""
+    payload = {
+        "subscription_status": "active",
+        "subscription_expires_at": _month_from_now(),
+    }
+    if subscription_id:
+        payload["subscription_id"] = subscription_id
+    return payload
+
+
+def _month_from_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _consultar_pago(mp_payment_id) -> dict | None:
@@ -283,9 +359,73 @@ async def webhook(request: Request):
     action = str(body.get("action") or body.get("type") or "")
     data_obj = body.get("data") or {}
     mp_id = data_obj.get("id") or body.get("data_id") or request.query_params.get("id")
-    if mp_id and ("payment" in action or request.query_params.get("topic") == "payment"):
+
+    topic = str(request.query_params.get("topic") or "")
+    if "subscription_preapproval" in action or topic == "subscription_preapproval":
+        if mp_id:
+            _procesar_preapproval(str(mp_id))
+        return {"ok": True}
+    if mp_id and ("payment" in action or topic == "payment"):
         _procesar_pago(mp_id)
     return {"ok": True}
+
+
+def _buscar_fila_por_referencia(reference: str) -> dict | None:
+    """Busca una fila de pagos a partir de una external_reference (gestor-<plan>-<uuid>)."""
+    for plan_key in ("premium", "pro"):
+        marker = f"gestor-{plan_key}-"
+        if marker in reference:
+            preferencia_id = reference.replace(marker, "")
+            row = (
+                db()
+                .table("pagos")
+                .select("id, telefono, correo")
+                .eq("preferencia_id", preferencia_id)
+                .limit(1)
+                .execute()
+                .data
+                or []
+            )
+            if row:
+                return dict(row[0], plan_key=plan_key)
+    return None
+
+
+def _procesar_preapproval(preapproval_id: str):
+    """Procesa un evento de suscripción (preapproval) para marcar el estado del perfil."""
+    try:
+        with _client() as client:
+            response = client.get(f"/preapproval/{preapproval_id}")
+            if response.status_code != 200:
+                return
+            sub = response.json()
+    except Exception:
+        return
+
+    status = str(sub.get("status") or "").lower()
+    reference = sub.get("external_reference") or ""
+    row = _buscar_fila_por_referencia(reference) if reference else None
+    if not row:
+        return
+
+    correo = _normalizar_correo(row.get("correo") or "")
+    userId = _buscar_auth_user_por_email(correo)
+    if not userId:
+        return
+
+    payload: dict = {"subscription_id": preapproval_id}
+    if status == "authorized":
+        payload["subscription_status"] = "active"
+    elif status in ("paused", "cancelled"):
+        payload["subscription_status"] = "paused"
+    elif status == "pending":
+        payload["subscription_status"] = "pending"
+
+    try:
+        db().table("profiles").update(payload).eq("id", userId).execute()
+    except Exception:
+        pass
+    db().table("pagos").update({"subscription_id": preapproval_id}).eq("id", row["id"]).execute()
 
 
 def _procesar_por_correo(correo: str, plan_key: str) -> bool:

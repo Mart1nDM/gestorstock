@@ -10,6 +10,8 @@ try:
     from .planes import router as planes_router
     from .metas import router as metas_router
     from .pagos import router as pagos_router
+    from .compartir import router as compartir_router
+    from .reportes import router as reportes_router
     from .db import db
 except ImportError:  # Vercel deploys api/index.py as a top-level module
     from auth import router as auth_router
@@ -20,6 +22,8 @@ except ImportError:  # Vercel deploys api/index.py as a top-level module
     from planes import router as planes_router
     from metas import router as metas_router
     from pagos import router as pagos_router
+    from compartir import router as compartir_router
+    from reportes import router as reportes_router
     from db import db
 
 app = FastAPI(title="Gestor Stock API", version="1.0.0")
@@ -32,6 +36,8 @@ app.include_router(dashboard_router)
 app.include_router(planes_router)
 app.include_router(metas_router)
 app.include_router(pagos_router)
+app.include_router(compartir_router)
+app.include_router(reportes_router)
 
 @app.get("/api/health")
 def health(): return {"ok": True, "service": "gestor-stock-api"}
